@@ -7,6 +7,7 @@
   inherit (lib) mkEnableOption mkOption mkIf types concatMapStringsSep concatStringsSep concatMapStrings boolToString optional;
   inherit (lib.strings) escapeNixString;
   cfg = config.programs.oxwm.settings;
+  pkg = config.programs.oxwm.package;
 
   # Converts a nix submodule into a single oxwm bar block
   blockToLua = block: let
@@ -63,6 +64,78 @@
       ++ optional (rule.focus != null) ''focus = ${boolToString rule.fullscreen}''
     );
   in "oxwm.rule.add({ ${fields} })";
+
+  configText = ''
+    -- @meta
+    -- @module 'oxwm'
+
+    oxwm.set_terminal("${cfg.terminal}")
+    oxwm.set_modkey("${cfg.modkey}")
+    oxwm.set_tags({${concatMapStringsSep ", " escapeNixString cfg.tags}})
+
+    local blocks = {
+      ${concatMapStringsSep ",\n" blockToLua cfg.bar.blocks}
+    };
+    oxwm.bar.set_blocks(blocks)
+    oxwm.bar.set_font("${cfg.bar.font}")
+    oxwm.bar.set_scheme_normal(${concatMapStringsSep ", " (c: ''"#${c}"'') cfg.bar.unoccupiedScheme})
+    oxwm.bar.set_scheme_occupied(${concatMapStringsSep ", " (c: ''"#${c}"'') cfg.bar.occupiedScheme})
+    oxwm.bar.set_scheme_selected(${concatMapStringsSep ", " (c: ''"#${c}"'') cfg.bar.selectedScheme})
+    oxwm.bar.set_scheme_urgent(${concatMapStringsSep ", " (c: ''"#${c}"'') cfg.bar.urgentScheme})
+    oxwm.bar.set_hide_vacant_tags(${boolToString cfg.bar.hideVacantTags})
+
+    oxwm.border.set_width(${toString cfg.border.width})
+    oxwm.border.set_focused_color("#${cfg.border.focusedColor}")
+    oxwm.border.set_unfocused_color("#${cfg.border.unfocusedColor}")
+
+    oxwm.gaps.set_smart(${cfg.gaps.smart})
+    oxwm.gaps.set_inner(${concatMapStringsSep ", " toString cfg.gaps.inner})
+    oxwm.gaps.set_outer(${concatMapStringsSep ", " toString cfg.gaps.outer})
+
+    oxwm.set_layout_symbol("tiling", "${cfg.layoutSymbol.tiling}")
+    oxwm.set_layout_symbol("normie", "${cfg.layoutSymbol.normie}")
+    oxwm.set_layout_symbol("tabbed", "${cfg.layoutSymbol.tabbed}")
+
+    ${
+      concatMapStrings (cmd: ''
+        oxwm.autostart("${cmd}")
+      '')
+      cfg.autostart
+    }
+    ${
+      concatMapStrings (bind: ''
+        oxwm.key.bind({ ${concatMapStringsSep ", " escapeNixString bind.mods} }, "${bind.key}", ${bind.action})
+      '')
+      cfg.binds
+    }
+    ${
+      concatMapStrings (chord: ''
+        oxwm.key.chord({
+          ${concatMapStringsSep ",\n  " (note: ''{ { ${concatMapStringsSep ", " escapeNixString note.mods} }, "${note.key}" }'') chord.notes}
+        }, ${chord.action})
+      '')
+      cfg.chords
+    }
+    ${
+      concatMapStrings (rule: ''
+        ${ruleToLua rule}
+      '')
+      cfg.rules
+    }
+
+    ${cfg.extraConfig}
+  '';
+
+    validatedConfig = pkgs.runCommand "config.lua" {
+      config = configText;
+      passAsFile = [ "config" ];
+      buildInputs = [ pkg ];
+    } ''
+      mkdir -p $TMPDIR/oxwm
+      cp $configPath $TMPDIR/oxwm/config.lua
+      XDG_CONFIG_HOME=$TMPDIR ${lib.getExe pkg} --validate
+      cp $configPath $out
+    '';
 in {
   options.programs.oxwm = {
     enable = mkEnableOption "oxwm window manager";
@@ -401,65 +474,6 @@ in {
   };
 
   config = mkIf config.programs.oxwm.enable {
-    xdg.configFile."oxwm/config.lua".text = ''
-      -- @meta
-      -- @module 'oxwm'
-
-      oxwm.set_terminal("${cfg.terminal}")
-      oxwm.set_modkey("${cfg.modkey}")
-      oxwm.set_tags({${concatMapStringsSep ", " escapeNixString cfg.tags}})
-
-      local blocks = {
-        ${concatMapStringsSep ",\n" blockToLua cfg.bar.blocks}
-      };
-      oxwm.bar.set_blocks(blocks)
-      oxwm.bar.set_font("${cfg.bar.font}")
-      oxwm.bar.set_scheme_normal(${concatMapStringsSep ", " (c: ''"#${c}"'') cfg.bar.unoccupiedScheme})
-      oxwm.bar.set_scheme_occupied(${concatMapStringsSep ", " (c: ''"#${c}"'') cfg.bar.occupiedScheme})
-      oxwm.bar.set_scheme_selected(${concatMapStringsSep ", " (c: ''"#${c}"'') cfg.bar.selectedScheme})
-      oxwm.bar.set_scheme_urgent(${concatMapStringsSep ", " (c: ''"#${c}"'') cfg.bar.urgentScheme})
-      oxwm.bar.set_hide_vacant_tags(${boolToString cfg.bar.hideVacantTags})
-
-      oxwm.border.set_width(${toString cfg.border.width})
-      oxwm.border.set_focused_color("#${cfg.border.focusedColor}")
-      oxwm.border.set_unfocused_color("#${cfg.border.unfocusedColor}")
-
-      oxwm.gaps.set_smart(${cfg.gaps.smart})
-      oxwm.gaps.set_inner(${concatMapStringsSep ", " toString cfg.gaps.inner})
-      oxwm.gaps.set_outer(${concatMapStringsSep ", " toString cfg.gaps.outer})
-
-      oxwm.set_layout_symbol("tiling", "${cfg.layoutSymbol.tiling}")
-      oxwm.set_layout_symbol("normie", "${cfg.layoutSymbol.normie}")
-      oxwm.set_layout_symbol("tabbed", "${cfg.layoutSymbol.tabbed}")
-
-      ${
-        concatMapStrings (cmd: ''
-          oxwm.autostart("${cmd}")
-        '')
-        cfg.autostart
-      }
-      ${
-        concatMapStrings (bind: ''
-          oxwm.key.bind({ ${concatMapStringsSep ", " escapeNixString bind.mods} }, "${bind.key}", ${bind.action})
-        '')
-        cfg.binds
-      }
-      ${
-        concatMapStrings (chord: ''
-          oxwm.key.chord({
-            ${concatMapStringsSep ",\n  " (note: ''{ { ${concatMapStringsSep ", " escapeNixString note.mods} }, "${note.key}" }'') chord.notes}
-          }, ${chord.action})
-        '')
-        cfg.chords
-      }
-      ${
-        concatMapStrings (rule: ''
-          ${ruleToLua rule}
-        '')
-        cfg.rules
-      }
-
-      ${cfg.extraConfig}
-    '';
+      xdg.configFile."oxwm/config.lua".source = validatedConfig;
   };
 }
