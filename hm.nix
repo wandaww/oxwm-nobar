@@ -61,7 +61,7 @@
       ++ optional (rule.floating != null) ''floating = ${boolToString rule.floating}''
       ++ optional (rule.tag != null) ''tag = ${toString rule.tag}''
       ++ optional (rule.fullscreen != null) ''fullscreen = ${boolToString rule.fullscreen}''
-      ++ optional (rule.focus != null) ''focus = ${boolToString rule.fullscreen}''
+      ++ optional (rule.focus != null) ''focus = ${boolToString rule.focus}''
     );
   in "oxwm.rule.add({ ${fields} })";
 
