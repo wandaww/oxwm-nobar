@@ -25,11 +25,6 @@ const IconicState: c_long = 3;
 const IsViewable: c_int = 2;
 const snap_distance: i32 = 32;
 
-/// Config built from Lua, passed into `WindowManager.init`.
-var config: config_mod.Config = undefined;
-/// Path to the loaded config file.
-var config_path_global: ?[]const u8 = null;
-
 /// File descriptor of the X11 connection, used in spawn_child_setup.
 /// Set from `wm.x11_fd` after init.
 var x11_fd: c_int = -1;
@@ -109,7 +104,7 @@ fn init_config(allocator: std.mem.Allocator) void {
 }
 
 fn validate_config(allocator: std.mem.Allocator, config_path: []const u8) !void {
-    config = config_mod.Config.init(allocator);
+    var config = config_mod.Config.init(allocator);
     defer config.deinit();
 
     if (!lua.init(&config)) {
@@ -168,7 +163,8 @@ pub fn main() !void {
 
     std.debug.print("oxwm starting\n", .{});
 
-    config = config_mod.Config.init(allocator);
+    var config = config_mod.Config.init(allocator);
+    var config_path_global: ?[]const u8 = null;
 
     if (lua.init(&config)) {
         const loaded = if (std.fs.cwd().statFile(config_path)) |_|
@@ -183,11 +179,11 @@ pub fn main() !void {
             std.debug.print("loaded config from {s}\n", .{config_path});
         } else {
             std.debug.print("no config found, using defaults\n", .{});
-            initialize_default_config();
+            initialize_default_config(&config);
         }
     } else {
         std.debug.print("failed to init lua, using defaults\n", .{});
-        initialize_default_config();
+        initialize_default_config(&config);
     }
 
     var wm = WindowManager.init(allocator, config, config_path_global) catch |err| {
@@ -196,8 +192,8 @@ pub fn main() !void {
     };
     defer wm.deinit();
 
-    // Propagate values that transitional code in this file still reads
-    // from module-level vars. These will be removed soon.
+    // x11_fd is read by spawn_child_setup() which runs in a forked child
+    // and cannot access wm directly.
     x11_fd = wm.x11_fd;
 
     std.debug.print("display opened: screen={d} root=0x{x}\n", .{ wm.display.screen, wm.display.root });
@@ -207,7 +203,7 @@ pub fn main() !void {
     grab_keybinds(&wm.display, &wm);
     scan_existing_windows(&wm.display, &wm);
 
-    try run_autostart_commands(allocator, config.autostart.items);
+    try run_autostart_commands(allocator, wm.config.autostart.items);
     std.debug.print("entering event loop\n", .{});
     run_event_loop(&wm);
 
@@ -234,45 +230,45 @@ fn make_keybind_str(mod: u32, key: u64, action: config_mod.Action, str_arg: []co
     return kb;
 }
 
-fn initialize_default_config() void {
+fn initialize_default_config(cfg: *config_mod.Config) void {
     const mod_key: u32 = 1 << 6;
     const shift_key: u32 = 1 << 0;
     const control_key: u32 = 1 << 2;
 
-    config.add_keybind(make_keybind(mod_key, 0xff0d, .spawn_terminal)) catch {};
-    config.add_keybind(make_keybind_str(mod_key, 'd', .spawn, "rofi -show drun")) catch {};
-    config.add_keybind(make_keybind_str(mod_key, 's', .spawn, "maim -s | xclip -selection clipboard -t image/png")) catch {};
-    config.add_keybind(make_keybind(mod_key, 'q', .kill_client)) catch {};
-    config.add_keybind(make_keybind(mod_key | shift_key, 'q', .quit)) catch {};
-    config.add_keybind(make_keybind(mod_key | shift_key, 'r', .reload_config)) catch {};
-    config.add_keybind(make_keybind(mod_key, 'j', .focus_next)) catch {};
-    config.add_keybind(make_keybind(mod_key, 'k', .focus_prev)) catch {};
-    config.add_keybind(make_keybind(mod_key | shift_key, 'j', .move_next)) catch {};
-    config.add_keybind(make_keybind(mod_key | shift_key, 'k', .move_prev)) catch {};
-    config.add_keybind(make_keybind_int(mod_key, 'h', .resize_master, -50)) catch {};
-    config.add_keybind(make_keybind_int(mod_key, 'l', .resize_master, 50)) catch {};
-    config.add_keybind(make_keybind(mod_key, 'i', .inc_master)) catch {};
-    config.add_keybind(make_keybind(mod_key, 'p', .dec_master)) catch {};
-    config.add_keybind(make_keybind(mod_key, 'a', .toggle_gaps)) catch {};
-    config.add_keybind(make_keybind(mod_key, 'f', .toggle_fullscreen)) catch {};
-    config.add_keybind(make_keybind(mod_key, 0x0020, .toggle_floating)) catch {};
-    config.add_keybind(make_keybind(mod_key, 'n', .cycle_layout)) catch {};
-    config.add_keybind(make_keybind_int(mod_key, 0x002c, .focus_monitor, -1)) catch {};
-    config.add_keybind(make_keybind_int(mod_key, 0x002e, .focus_monitor, 1)) catch {};
-    config.add_keybind(make_keybind_int(mod_key | shift_key, 0x002c, .send_to_monitor, -1)) catch {};
-    config.add_keybind(make_keybind_int(mod_key | shift_key, 0x002e, .send_to_monitor, 1)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 0xff0d, .spawn_terminal)) catch {};
+    cfg.add_keybind(make_keybind_str(mod_key, 'd', .spawn, "rofi -show drun")) catch {};
+    cfg.add_keybind(make_keybind_str(mod_key, 's', .spawn, "maim -s | xclip -selection clipboard -t image/png")) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'q', .kill_client)) catch {};
+    cfg.add_keybind(make_keybind(mod_key | shift_key, 'q', .quit)) catch {};
+    cfg.add_keybind(make_keybind(mod_key | shift_key, 'r', .reload_config)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'j', .focus_next)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'k', .focus_prev)) catch {};
+    cfg.add_keybind(make_keybind(mod_key | shift_key, 'j', .move_next)) catch {};
+    cfg.add_keybind(make_keybind(mod_key | shift_key, 'k', .move_prev)) catch {};
+    cfg.add_keybind(make_keybind_int(mod_key, 'h', .resize_master, -50)) catch {};
+    cfg.add_keybind(make_keybind_int(mod_key, 'l', .resize_master, 50)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'i', .inc_master)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'p', .dec_master)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'a', .toggle_gaps)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'f', .toggle_fullscreen)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 0x0020, .toggle_floating)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'n', .cycle_layout)) catch {};
+    cfg.add_keybind(make_keybind_int(mod_key, 0x002c, .focus_monitor, -1)) catch {};
+    cfg.add_keybind(make_keybind_int(mod_key, 0x002e, .focus_monitor, 1)) catch {};
+    cfg.add_keybind(make_keybind_int(mod_key | shift_key, 0x002c, .send_to_monitor, -1)) catch {};
+    cfg.add_keybind(make_keybind_int(mod_key | shift_key, 0x002e, .send_to_monitor, 1)) catch {};
 
     var tag_index: i32 = 0;
     while (tag_index < 9) : (tag_index += 1) {
         const keysym: u64 = @as(u64, '1') + @as(u64, @intCast(tag_index));
-        config.add_keybind(make_keybind_int(mod_key, keysym, .view_tag, tag_index)) catch {};
-        config.add_keybind(make_keybind_int(mod_key | shift_key, keysym, .move_to_tag, tag_index)) catch {};
-        config.add_keybind(make_keybind_int(mod_key | control_key, keysym, .toggle_view_tag, tag_index)) catch {};
-        config.add_keybind(make_keybind_int(mod_key | control_key | shift_key, keysym, .toggle_tag, tag_index)) catch {};
+        cfg.add_keybind(make_keybind_int(mod_key, keysym, .view_tag, tag_index)) catch {};
+        cfg.add_keybind(make_keybind_int(mod_key | shift_key, keysym, .move_to_tag, tag_index)) catch {};
+        cfg.add_keybind(make_keybind_int(mod_key | control_key, keysym, .toggle_view_tag, tag_index)) catch {};
+        cfg.add_keybind(make_keybind_int(mod_key | control_key | shift_key, keysym, .toggle_tag, tag_index)) catch {};
     }
 
-    config.add_button(.{ .click = .client_win, .mod_mask = mod_key, .button = 1, .action = .move_mouse }) catch {};
-    config.add_button(.{ .click = .client_win, .mod_mask = mod_key, .button = 3, .action = .resize_mouse }) catch {};
+    cfg.add_button(.{ .click = .client_win, .mod_mask = mod_key, .button = 1, .action = .move_mouse }) catch {};
+    cfg.add_button(.{ .click = .client_win, .mod_mask = mod_key, .button = 3, .action = .resize_mouse }) catch {};
 }
 
 fn grab_keybinds(display: *Display, wm: *WindowManager) void {
@@ -281,7 +277,7 @@ fn grab_keybinds(display: *Display, wm: *WindowManager) void {
 
     _ = xlib.XUngrabKey(display.handle, xlib.AnyKey, xlib.AnyModifier, display.root);
 
-    for (config.keybinds.items) |keybind| {
+    for (wm.config.keybinds.items) |keybind| {
         if (keybind.key_count == 0) continue;
         const first_key = keybind.keys[0];
         const keycode = xlib.XKeysymToKeycode(display.handle, @intCast(first_key.keysym));
@@ -300,7 +296,7 @@ fn grab_keybinds(display: *Display, wm: *WindowManager) void {
         }
     }
 
-    for (config.buttons.items) |button| {
+    for (wm.config.buttons.items) |button| {
         if (button.click == .client_win) {
             for (modifiers) |modifier| {
                 _ = xlib.XGrabButton(
@@ -319,7 +315,7 @@ fn grab_keybinds(display: *Display, wm: *WindowManager) void {
         }
     }
 
-    std.debug.print("grabbed {d} keybinds from config\n", .{config.keybinds.items.len});
+    std.debug.print("grabbed {d} keybinds from config\n", .{wm.config.keybinds.items.len});
 }
 
 fn get_state(display: *Display, window: xlib.Window, wm: *WindowManager) c_long {
@@ -484,7 +480,7 @@ fn manage(display: *Display, win: xlib.Window, window_attrs: *xlib.XWindowAttrib
     client.old_width = window_attrs.width;
     client.old_height = window_attrs.height;
     client.old_border_width = window_attrs.border_width;
-    client.border_width = config.border_width;
+    client.border_width = wm.config.border_width;
 
     update_title(display, client, wm);
 
@@ -512,7 +508,7 @@ fn manage(display: *Display, win: xlib.Window, window_attrs: *xlib.XWindowAttrib
     client.y = @max(client.y, monitor.win_y);
 
     _ = xlib.XSetWindowBorderWidth(display.handle, win, @intCast(client.border_width));
-    _ = xlib.XSetWindowBorder(display.handle, win, config.border_unfocused);
+    _ = xlib.XSetWindowBorder(display.handle, win, wm.config.border_unfocused);
     tiling.send_configure(client);
 
     update_window_type(display, client, wm);
@@ -627,7 +623,7 @@ fn handle_key_press(display: *Display, event: *xlib.XKeyEvent, wm: *WindowManage
 
     _ = wm.chord.push(.{ .mod_mask = clean_state, .keysym = keysym });
 
-    for (config.keybinds.items) |keybind| {
+    for (wm.config.keybinds.items) |keybind| {
         if (keybind.key_count == 0) continue;
 
         if (keybind.key_count == wm.chord.index) {
@@ -649,7 +645,7 @@ fn handle_key_press(display: *Display, event: *xlib.XKeyEvent, wm: *WindowManage
     }
 
     var has_partial_match = false;
-    for (config.keybinds.items) |keybind| {
+    for (wm.config.keybinds.items) |keybind| {
         if (keybind.key_count > wm.chord.index) {
             var matches = true;
             for (0..wm.chord.index) |i| {
@@ -676,7 +672,7 @@ fn handle_key_press(display: *Display, event: *xlib.XKeyEvent, wm: *WindowManage
 
 fn execute_action(display: *Display, action: config_mod.Action, int_arg: i32, str_arg: ?[]const u8, wm: *WindowManager) void {
     switch (action) {
-        .spawn_terminal => spawn_terminal(),
+        .spawn_terminal => spawn_terminal(wm),
         .spawn => {
             if (str_arg) |cmd| spawn_command(cmd);
         },
@@ -741,28 +737,28 @@ fn reload_config(display: *Display, wm: *WindowManager) void {
 
     ungrab_keybinds(display);
 
-    config.keybinds.clearRetainingCapacity();
-    config.buttons.clearRetainingCapacity();
-    config.rules.clearRetainingCapacity();
-    config.blocks.clearRetainingCapacity();
+    wm.config.keybinds.clearRetainingCapacity();
+    wm.config.buttons.clearRetainingCapacity();
+    wm.config.rules.clearRetainingCapacity();
+    wm.config.blocks.clearRetainingCapacity();
 
     lua.deinit();
-    _ = lua.init(&config);
+    _ = lua.init(&wm.config);
 
-    const loaded = if (config_path_global) |path|
+    const loaded = if (wm.config_path) |path|
         lua.load_file(path)
     else
         lua.load_config();
 
     if (loaded) {
-        if (config_path_global) |path| {
+        if (wm.config_path) |path| {
             std.debug.print("reloaded config from {s}\n", .{path});
         } else {
             std.debug.print("reloaded config from ~/.config/oxwm/config.lua\n", .{});
         }
     } else {
         std.debug.print("reload failed, restoring defaults\n", .{});
-        initialize_default_config();
+        initialize_default_config(&wm.config);
     }
 
     bar_mod.destroy_bars(wm.bars, gpa.allocator(), display.handle);
@@ -814,12 +810,13 @@ fn spawn_command(cmd: []const u8) void {
     }
 }
 
-fn spawn_terminal() void {
+// TODO: take in the terminal cmd directly.
+fn spawn_terminal(wm: *WindowManager) void {
     const pid = std.posix.fork() catch return;
     if (pid == 0) {
         spawn_child_setup();
         var term_buf: [256]u8 = undefined;
-        const terminal = config.terminal;
+        const terminal = wm.config.terminal;
         if (terminal.len >= term_buf.len) {
             std.posix.exit(1);
         }
@@ -940,10 +937,10 @@ fn toggle_client_tag(display: *Display, tag_mask: u32, wm: *WindowManager) void 
 fn toggle_gaps(wm: *WindowManager) void {
     const monitor = monitor_mod.selected_monitor orelse return;
     if (monitor.gap_inner_h == 0) {
-        monitor.gap_inner_h = config.gap_inner_h;
-        monitor.gap_inner_v = config.gap_inner_v;
-        monitor.gap_outer_h = config.gap_outer_h;
-        monitor.gap_outer_v = config.gap_outer_v;
+        monitor.gap_inner_h = wm.config.gap_inner_h;
+        monitor.gap_inner_v = wm.config.gap_inner_v;
+        monitor.gap_outer_h = wm.config.gap_outer_h;
+        monitor.gap_outer_v = wm.config.gap_outer_v;
     } else {
         monitor.gap_inner_h = 0;
         monitor.gap_inner_v = 0;
@@ -1432,7 +1429,7 @@ fn movemouse(display: *Display, wm: *WindowManager) void {
         arrange(monitor, wm);
     }
 
-    if (config.auto_tile and !was_floating) {
+    if (wm.config.auto_tile and !was_floating) {
         const drop_monitor = client.monitor orelse return;
         const center_x = client.x + @divTrunc(client.width, 2);
         const center_y = client.y + @divTrunc(client.height, 2);
@@ -1572,7 +1569,7 @@ fn handle_button_press(display: *Display, event: *xlib.XButtonEvent, wm: *Window
     }
 
     const clean_state = clean_mask(event.state, wm);
-    for (config.buttons.items) |button| {
+    for (wm.config.buttons.items) |button| {
         if (button.click != .client_win) continue;
         const button_clean_mask = clean_mask(button.mod_mask, wm);
         if (clean_state == button_clean_mask and event.button == button.button) {
@@ -1770,7 +1767,7 @@ fn handle_property_notify(display: *Display, event: *xlib.XPropertyEvent, wm: *W
 fn unfocus_client(display: *Display, client: ?*Client, reset_input_focus: bool, wm: *WindowManager) void {
     const unfocus_target = client orelse return;
     grabbuttons(display, unfocus_target, false, wm);
-    _ = xlib.XSetWindowBorder(display.handle, unfocus_target.window, config.border_unfocused);
+    _ = xlib.XSetWindowBorder(display.handle, unfocus_target.window, wm.config.border_unfocused);
     if (reset_input_focus) {
         _ = xlib.XSetInputFocus(display.handle, display.root, xlib.RevertToPointerRoot, xlib.CurrentTime);
         _ = xlib.XDeleteProperty(display.handle, display.root, wm.atoms.net_active_window);
@@ -1821,7 +1818,7 @@ fn grabbuttons(display: *Display, client: *Client, focused: bool, wm: *WindowMan
             xlib.None,
         );
     }
-    for (config.buttons.items) |button| {
+    for (wm.config.buttons.items) |button| {
         if (button.click == .client_win) {
             for (modifiers) |modifier| {
                 _ = xlib.XGrabButton(
@@ -1867,7 +1864,7 @@ fn focus(display: *Display, target_client: ?*Client, wm: *WindowManager) void {
         client_mod.detach_stack(client);
         client_mod.attach_stack(client);
         grabbuttons(display, client, true, wm);
-        _ = xlib.XSetWindowBorder(display.handle, client.window, config.border_focused);
+        _ = xlib.XSetWindowBorder(display.handle, client.window, wm.config.border_focused);
         if (!client.never_focus) {
             _ = xlib.XSetInputFocus(display.handle, client.window, xlib.RevertToPointerRoot, xlib.CurrentTime);
             _ = xlib.XChangeProperty(display.handle, display.root, wm.atoms.net_active_window, xlib.XA_WINDOW, 32, xlib.PropModeReplace, @ptrCast(&client.window), 1);
@@ -2151,7 +2148,7 @@ fn apply_rules(display: *Display, client: *Client, wm: *WindowManager) void {
     client.tags = 0;
     var rule_focus = false;
 
-    for (config.rules.items) |rule| {
+    for (wm.config.rules.items) |rule| {
         const class_matches = if (rule.class) |rc| std.mem.indexOf(u8, class_str, rc) != null else true;
         const instance_matches = if (rule.instance) |ri| std.mem.indexOf(u8, instance_str, ri) != null else true;
         const title_matches = if (rule.title) |rt| std.mem.indexOf(u8, std.mem.sliceTo(&client.name, 0), rt) != null else true;
