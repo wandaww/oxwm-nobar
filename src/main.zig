@@ -272,23 +272,22 @@ fn initialize_default_config(cfg: *config_mod.Config) void {
 }
 
 fn grab_keybinds(wm: *WindowManager) void {
-    const display = &wm.display;
     update_numlock_mask(wm);
     const modifiers = [_]c_uint{ 0, xlib.LockMask, wm.numlock_mask, wm.numlock_mask | xlib.LockMask };
 
-    _ = xlib.XUngrabKey(display.handle, xlib.AnyKey, xlib.AnyModifier, display.root);
+    _ = xlib.XUngrabKey(wm.display.handle, xlib.AnyKey, xlib.AnyModifier, wm.display.root);
 
     for (wm.config.keybinds.items) |keybind| {
         if (keybind.key_count == 0) continue;
         const first_key = keybind.keys[0];
-        const keycode = xlib.XKeysymToKeycode(display.handle, @intCast(first_key.keysym));
+        const keycode = xlib.XKeysymToKeycode(wm.display.handle, @intCast(first_key.keysym));
         if (keycode != 0) {
             for (modifiers) |modifier| {
                 _ = xlib.XGrabKey(
-                    display.handle,
+                    wm.display.handle,
                     keycode,
                     first_key.mod_mask | modifier,
-                    display.root,
+                    wm.display.root,
                     xlib.True,
                     xlib.GrabModeAsync,
                     xlib.GrabModeAsync,
@@ -301,10 +300,10 @@ fn grab_keybinds(wm: *WindowManager) void {
         if (button.click == .client_win) {
             for (modifiers) |modifier| {
                 _ = xlib.XGrabButton(
-                    display.handle,
+                    wm.display.handle,
                     @intCast(button.button),
                     button.mod_mask | modifier,
-                    display.root,
+                    wm.display.root,
                     xlib.True,
                     xlib.ButtonPressMask | xlib.ButtonReleaseMask | xlib.PointerMotionMask,
                     xlib.GrabModeAsync,
@@ -320,7 +319,6 @@ fn grab_keybinds(wm: *WindowManager) void {
 }
 
 fn get_state(window: xlib.Window, wm: *WindowManager) c_long {
-    const display = &wm.display;
     var actual_type: xlib.Atom = 0;
     var actual_format: c_int = 0;
     var num_items: c_ulong = 0;
@@ -328,7 +326,7 @@ fn get_state(window: xlib.Window, wm: *WindowManager) c_long {
     var prop: [*c]u8 = null;
 
     const result = xlib.XGetWindowProperty(
-        display.handle,
+        wm.display.handle,
         window,
         wm.atoms.wm_state,
         0,
@@ -355,27 +353,26 @@ fn get_state(window: xlib.Window, wm: *WindowManager) c_long {
 }
 
 fn scan_existing_windows(wm: *WindowManager) void {
-    const display = &wm.display;
     var root_return: xlib.Window = undefined;
     var parent_return: xlib.Window = undefined;
     var children: [*c]xlib.Window = undefined;
     var num_children: c_uint = undefined;
 
-    if (xlib.XQueryTree(display.handle, display.root, &root_return, &parent_return, &children, &num_children) == 0) {
+    if (xlib.XQueryTree(wm.display.handle, wm.display.root, &root_return, &parent_return, &children, &num_children) == 0) {
         return;
     }
 
     var index: c_uint = 0;
     while (index < num_children) : (index += 1) {
         var window_attrs: xlib.XWindowAttributes = undefined;
-        if (xlib.XGetWindowAttributes(display.handle, children[index], &window_attrs) == 0) {
+        if (xlib.XGetWindowAttributes(wm.display.handle, children[index], &window_attrs) == 0) {
             continue;
         }
         if (window_attrs.override_redirect != 0) {
             continue;
         }
         var trans: xlib.Window = 0;
-        if (xlib.XGetTransientForHint(display.handle, children[index], &trans) != 0) {
+        if (xlib.XGetTransientForHint(wm.display.handle, children[index], &trans) != 0) {
             continue;
         }
         if (window_attrs.map_state == IsViewable or get_state(children[index], wm) == IconicState) {
@@ -386,11 +383,11 @@ fn scan_existing_windows(wm: *WindowManager) void {
     index = 0;
     while (index < num_children) : (index += 1) {
         var window_attrs: xlib.XWindowAttributes = undefined;
-        if (xlib.XGetWindowAttributes(display.handle, children[index], &window_attrs) == 0) {
+        if (xlib.XGetWindowAttributes(wm.display.handle, children[index], &window_attrs) == 0) {
             continue;
         }
         var trans: xlib.Window = 0;
-        if (xlib.XGetTransientForHint(display.handle, children[index], &trans) != 0) {
+        if (xlib.XGetTransientForHint(wm.display.handle, children[index], &trans) != 0) {
             if (window_attrs.map_state == IsViewable or get_state(children[index], wm) == IconicState) {
                 manage(children[index], &window_attrs, wm);
             }
@@ -454,11 +451,10 @@ fn handle_event(event: *xlib.XEvent, wm: *WindowManager) void {
 }
 
 fn handle_map_request(event: *xlib.XMapRequestEvent, wm: *WindowManager) void {
-    const display = &wm.display;
     std.debug.print("map_request: window=0x{x}\n", .{event.window});
 
     var window_attributes: xlib.XWindowAttributes = undefined;
-    if (xlib.XGetWindowAttributes(display.handle, event.window, &window_attributes) == 0) {
+    if (xlib.XGetWindowAttributes(wm.display.handle, event.window, &window_attributes) == 0) {
         return;
     }
     if (window_attributes.override_redirect != 0) {
@@ -472,7 +468,6 @@ fn handle_map_request(event: *xlib.XMapRequestEvent, wm: *WindowManager) void {
 }
 
 fn manage(win: xlib.Window, window_attrs: *xlib.XWindowAttributes, wm: *WindowManager) void {
-    const display = &wm.display;
     const client = client_mod.create(gpa.allocator(), win) orelse return;
     var trans: xlib.Window = 0;
 
@@ -489,7 +484,7 @@ fn manage(win: xlib.Window, window_attrs: *xlib.XWindowAttributes, wm: *WindowMa
 
     update_title(client, wm);
 
-    if (xlib.XGetTransientForHint(display.handle, win, &trans) != 0) {
+    if (xlib.XGetTransientForHint(wm.display.handle, win, &trans) != 0) {
         if (client_mod.window_to_client(monitor_mod.monitors, trans)) |transient_client| {
             client.monitor = transient_client.monitor;
             client.tags = transient_client.tags;
@@ -512,8 +507,8 @@ fn manage(win: xlib.Window, window_attrs: *xlib.XWindowAttributes, wm: *WindowMa
     client.x = @max(client.x, monitor.win_x);
     client.y = @max(client.y, monitor.win_y);
 
-    _ = xlib.XSetWindowBorderWidth(display.handle, win, @intCast(client.border_width));
-    _ = xlib.XSetWindowBorder(display.handle, win, wm.config.border_unfocused);
+    _ = xlib.XSetWindowBorderWidth(wm.display.handle, win, @intCast(client.border_width));
+    _ = xlib.XSetWindowBorder(wm.display.handle, win, wm.config.border_unfocused);
     tiling.send_configure(client);
 
     update_window_type(client, wm);
@@ -521,7 +516,7 @@ fn manage(win: xlib.Window, window_attrs: *xlib.XWindowAttributes, wm: *WindowMa
     update_wm_hints(client, wm);
 
     _ = xlib.XSelectInput(
-        display.handle,
+        wm.display.handle,
         win,
         xlib.EnterWindowMask | xlib.FocusChangeMask | xlib.PropertyChangeMask | xlib.StructureNotifyMask,
     );
@@ -532,14 +527,14 @@ fn manage(win: xlib.Window, window_attrs: *xlib.XWindowAttributes, wm: *WindowMa
         client.old_state = client.is_floating;
     }
     if (client.is_floating) {
-        _ = xlib.XRaiseWindow(display.handle, client.window);
+        _ = xlib.XRaiseWindow(wm.display.handle, client.window);
     }
 
     client_mod.attach_aside(client);
     client_mod.attach_stack(client);
 
-    _ = xlib.XChangeProperty(display.handle, display.root, wm.atoms.net_client_list, xlib.XA_WINDOW, 32, xlib.PropModeAppend, @ptrCast(&client.window), 1);
-    _ = xlib.XMoveResizeWindow(display.handle, client.window, client.x + 2 * display.screen_width(), client.y, @intCast(client.width), @intCast(client.height));
+    _ = xlib.XChangeProperty(wm.display.handle, wm.display.root, wm.atoms.net_client_list, xlib.XA_WINDOW, 32, xlib.PropModeAppend, @ptrCast(&client.window), 1);
+    _ = xlib.XMoveResizeWindow(wm.display.handle, client.window, client.x + 2 * wm.display.screen_width(), client.y, @intCast(client.width), @intCast(client.height));
     set_client_state(client, NormalState, wm);
 
     if (client.monitor == monitor_mod.selected_monitor) {
@@ -553,12 +548,11 @@ fn manage(win: xlib.Window, window_attrs: *xlib.XWindowAttributes, wm: *WindowMa
     }
 
     arrange(monitor, wm);
-    _ = xlib.XMapWindow(display.handle, win);
+    _ = xlib.XMapWindow(wm.display.handle, win);
     focus(null, wm);
 }
 
 fn handle_configure_request(event: *xlib.XConfigureRequestEvent, wm: *WindowManager) void {
-    const display = &wm.display;
     const client = client_mod.window_to_client(monitor_mod.monitors, event.window);
 
     if (client) |managed_client| {
@@ -594,7 +588,7 @@ fn handle_configure_request(event: *xlib.XConfigureRequestEvent, wm: *WindowMana
                 tiling.send_configure(managed_client);
             }
             if (client_mod.is_visible(managed_client)) {
-                _ = xlib.XMoveResizeWindow(display.handle, managed_client.window, managed_client.x, managed_client.y, @intCast(managed_client.width), @intCast(managed_client.height));
+                _ = xlib.XMoveResizeWindow(wm.display.handle, managed_client.window, managed_client.x, managed_client.y, @intCast(managed_client.width), @intCast(managed_client.height));
             }
         } else {
             tiling.send_configure(managed_client);
@@ -608,14 +602,13 @@ fn handle_configure_request(event: *xlib.XConfigureRequestEvent, wm: *WindowMana
         changes.border_width = event.border_width;
         changes.sibling = event.above;
         changes.stack_mode = event.detail;
-        _ = xlib.XConfigureWindow(display.handle, event.window, @intCast(event.value_mask), &changes);
+        _ = xlib.XConfigureWindow(wm.display.handle, event.window, @intCast(event.value_mask), &changes);
     }
-    _ = xlib.XSync(display.handle, xlib.False);
+    _ = xlib.XSync(wm.display.handle, xlib.False);
 }
 
 fn handle_key_press(event: *xlib.XKeyEvent, wm: *WindowManager) void {
-    const display = &wm.display;
-    const keysym = xlib.XKeycodeToKeysym(display.handle, @intCast(event.keycode), 0);
+    const keysym = xlib.XKeycodeToKeysym(wm.display.handle, @intCast(event.keycode), 0);
 
     if (wm.overlay) |overlay| {
         if (overlay.handle_key(keysym)) return;
@@ -624,7 +617,7 @@ fn handle_key_press(event: *xlib.XKeyEvent, wm: *WindowManager) void {
     const clean_state = event.state & ~@as(c_uint, xlib.LockMask | xlib.Mod2Mask);
 
     if (wm.chord.is_timed_out()) {
-        wm.chord.reset(display.handle);
+        wm.chord.reset(wm.display.handle);
     }
 
     _ = wm.chord.push(.{ .mod_mask = clean_state, .keysym = keysym });
@@ -644,7 +637,7 @@ fn handle_key_press(event: *xlib.XKeyEvent, wm: *WindowManager) void {
             }
             if (matches) {
                 execute_action(keybind.action, keybind.int_arg, keybind.str_arg, wm);
-                wm.chord.reset(display.handle);
+                wm.chord.reset(wm.display.handle);
                 return;
             }
         }
@@ -670,9 +663,9 @@ fn handle_key_press(event: *xlib.XKeyEvent, wm: *WindowManager) void {
     }
 
     if (has_partial_match) {
-        wm.chord.grab_keyboard(display.handle, display.root);
+        wm.chord.grab_keyboard(wm.display.handle, wm.display.root);
     } else {
-        wm.chord.reset(display.handle);
+        wm.chord.reset(wm.display.handle);
     }
 }
 
@@ -739,7 +732,6 @@ fn execute_action(action: config_mod.Action, int_arg: i32, str_arg: ?[]const u8,
 }
 
 fn reload_config(wm: *WindowManager) void {
-    const display = &wm.display;
     std.debug.print("reloading config...\n", .{});
 
     ungrab_keybinds(wm);
@@ -768,7 +760,7 @@ fn reload_config(wm: *WindowManager) void {
         initialize_default_config(&wm.config);
     }
 
-    bar_mod.destroy_bars(wm.bars, gpa.allocator(), display.handle);
+    bar_mod.destroy_bars(wm.bars, gpa.allocator(), wm.display.handle);
     wm.bars = null;
     wm.setup_bars();
     rebuild_bar_blocks(wm);
@@ -786,8 +778,7 @@ fn rebuild_bar_blocks(wm: *WindowManager) void {
 }
 
 fn ungrab_keybinds(wm: *WindowManager) void {
-    const display = &wm.display;
-    _ = xlib.XUngrabKey(display.handle, xlib.AnyKey, xlib.AnyModifier, display.root);
+    _ = xlib.XUngrabKey(wm.display.handle, xlib.AnyKey, xlib.AnyModifier, wm.display.root);
 }
 
 fn spawn_child_setup() void {
@@ -959,16 +950,15 @@ fn toggle_gaps(wm: *WindowManager) void {
 }
 
 fn kill_focused(wm: *WindowManager) void {
-    const display = &wm.display;
     const selected = monitor_mod.selected_monitor orelse return;
     const client = selected.sel orelse return;
     std.debug.print("killing window: 0x{x}\n", .{client.window});
 
     if (!send_event(client, wm.atoms.wm_delete, wm)) {
-        _ = xlib.XGrabServer(display.handle);
-        _ = xlib.XKillClient(display.handle, client.window);
-        _ = xlib.XSync(display.handle, xlib.False);
-        _ = xlib.XUngrabServer(display.handle);
+        _ = xlib.XGrabServer(wm.display.handle);
+        _ = xlib.XKillClient(wm.display.handle, client.window);
+        _ = xlib.XSync(wm.display.handle, xlib.False);
+        _ = xlib.XUngrabServer(wm.display.handle);
     }
 }
 
@@ -979,13 +969,12 @@ fn toggle_fullscreen(wm: *WindowManager) void {
 }
 
 fn set_fullscreen(client: *Client, fullscreen: bool, wm: *WindowManager) void {
-    const display = &wm.display;
     const monitor = client.monitor orelse return;
 
     if (fullscreen and !client.is_fullscreen) {
         var fullscreen_atom = wm.atoms.net_wm_state_fullscreen;
         _ = xlib.XChangeProperty(
-            display.handle,
+            wm.display.handle,
             client.window,
             wm.atoms.net_wm_state,
             xlib.XA_ATOM,
@@ -1000,15 +989,15 @@ fn set_fullscreen(client: *Client, fullscreen: bool, wm: *WindowManager) void {
         client.border_width = 0;
         client.is_floating = true;
 
-        _ = xlib.XSetWindowBorderWidth(display.handle, client.window, 0);
+        _ = xlib.XSetWindowBorderWidth(wm.display.handle, client.window, 0);
         tiling.resize_client(client, monitor.mon_x, monitor.mon_y, monitor.mon_w, monitor.mon_h);
-        _ = xlib.XRaiseWindow(display.handle, client.window);
+        _ = xlib.XRaiseWindow(wm.display.handle, client.window);
 
         std.debug.print("fullscreen enabled: window=0x{x}\n", .{client.window});
     } else if (!fullscreen and client.is_fullscreen) {
         var no_atom: xlib.Atom = 0;
         _ = xlib.XChangeProperty(
-            display.handle,
+            wm.display.handle,
             client.window,
             wm.atoms.net_wm_state,
             xlib.XA_ATOM,
@@ -1125,7 +1114,6 @@ fn tag_client(tag_mask: u32, wm: *WindowManager) void {
 }
 
 fn focus_top_client(monitor: *Monitor, wm: *WindowManager) void {
-    const display = &wm.display;
     var visible_client = monitor.stack;
     while (visible_client) |client| {
         if (client_mod.is_visible(client)) {
@@ -1135,7 +1123,7 @@ fn focus_top_client(monitor: *Monitor, wm: *WindowManager) void {
         visible_client = client.stack_next;
     }
     monitor.sel = null;
-    _ = xlib.XSetInputFocus(display.handle, display.root, xlib.RevertToPointerRoot, xlib.CurrentTime);
+    _ = xlib.XSetInputFocus(wm.display.handle, wm.display.root, xlib.RevertToPointerRoot, xlib.CurrentTime);
 }
 
 fn focusstack(direction: i32, wm: *WindowManager) void {
@@ -1348,7 +1336,6 @@ fn snap_y(client: *Client, new_y: i32, monitor: *Monitor) i32 {
 }
 
 fn movemouse(wm: *WindowManager) void {
-    const display = &wm.display;
     const monitor = monitor_mod.selected_monitor orelse return;
     const client = monitor.sel orelse return;
 
@@ -1369,11 +1356,11 @@ fn movemouse(wm: *WindowManager) void {
     var dummy_int: c_int = undefined;
     var dummy_uint: c_uint = undefined;
 
-    _ = xlib.XQueryPointer(display.handle, display.root, &dummy_win, &dummy_win, &root_x, &root_y, &dummy_int, &dummy_int, &dummy_uint);
+    _ = xlib.XQueryPointer(wm.display.handle, wm.display.root, &dummy_win, &dummy_win, &root_x, &root_y, &dummy_int, &dummy_int, &dummy_uint);
 
     const grab_result = xlib.XGrabPointer(
-        display.handle,
-        display.root,
+        wm.display.handle,
+        wm.display.root,
         xlib.False,
         xlib.ButtonPressMask | xlib.ButtonReleaseMask | xlib.PointerMotionMask,
         xlib.GrabModeAsync,
@@ -1397,7 +1384,7 @@ fn movemouse(wm: *WindowManager) void {
     var done = false;
 
     while (!done) {
-        _ = xlib.XNextEvent(display.handle, &event);
+        _ = xlib.XNextEvent(wm.display.handle, &event);
 
         switch (event.type) {
             xlib.MotionNotify => {
@@ -1423,7 +1410,7 @@ fn movemouse(wm: *WindowManager) void {
         }
     }
 
-    _ = xlib.XUngrabPointer(display.handle, xlib.CurrentTime);
+    _ = xlib.XUngrabPointer(wm.display.handle, xlib.CurrentTime);
 
     const new_mon = monitor_mod.rect_to_monitor(client.x, client.y, client.width, client.height);
     if (new_mon != null and new_mon != monitor) {
@@ -1456,7 +1443,6 @@ fn movemouse(wm: *WindowManager) void {
 }
 
 fn resizemouse(wm: *WindowManager) void {
-    const display = &wm.display;
     const monitor = monitor_mod.selected_monitor orelse return;
     const client = monitor.sel orelse return;
 
@@ -1471,8 +1457,8 @@ fn resizemouse(wm: *WindowManager) void {
     }
 
     const grab_result = xlib.XGrabPointer(
-        display.handle,
-        display.root,
+        wm.display.handle,
+        wm.display.root,
         xlib.False,
         xlib.ButtonPressMask | xlib.ButtonReleaseMask | xlib.PointerMotionMask,
         xlib.GrabModeAsync,
@@ -1486,14 +1472,14 @@ fn resizemouse(wm: *WindowManager) void {
         return;
     }
 
-    _ = xlib.XWarpPointer(display.handle, xlib.None, client.window, 0, 0, 0, 0, client.width + client.border_width - 1, client.height + client.border_width - 1);
+    _ = xlib.XWarpPointer(wm.display.handle, xlib.None, client.window, 0, 0, 0, 0, client.width + client.border_width - 1, client.height + client.border_width - 1);
 
     var event: xlib.XEvent = undefined;
     var done = false;
     var last_time: c_ulong = 0;
 
     while (!done) {
-        _ = xlib.XNextEvent(display.handle, &event);
+        _ = xlib.XNextEvent(wm.display.handle, &event);
 
         switch (event.type) {
             xlib.MotionNotify => {
@@ -1525,16 +1511,15 @@ fn resizemouse(wm: *WindowManager) void {
         }
     }
 
-    _ = xlib.XUngrabPointer(display.handle, xlib.CurrentTime);
+    _ = xlib.XUngrabPointer(wm.display.handle, xlib.CurrentTime);
     arrange(monitor, wm);
 }
 
 fn handle_expose(event: *xlib.XExposeEvent, wm: *WindowManager) void {
-    const display = &wm.display;
     if (event.count != 0) return;
     if (bar_mod.window_to_bar(wm.bars, event.window)) |bar| {
         bar.invalidate();
-        bar.draw(display.handle, wm.config);
+        bar.draw(wm.display.handle, wm.config);
     }
 }
 
@@ -1551,10 +1536,9 @@ fn clean_mask(mask: c_uint, wm: *WindowManager) c_uint {
 }
 
 fn handle_button_press(event: *xlib.XButtonEvent, wm: *WindowManager) void {
-    const display = &wm.display;
     std.debug.print("button_press: window=0x{x} subwindow=0x{x}\n", .{ event.window, event.subwindow });
 
-    const clicked_monitor = monitor_mod.window_to_monitor(display.handle, display.root, event.window);
+    const clicked_monitor = monitor_mod.window_to_monitor(wm.display.handle, wm.display.root, event.window);
     if (clicked_monitor) |monitor| {
         if (monitor != monitor_mod.selected_monitor) {
             if (monitor_mod.selected_monitor) |selmon| {
@@ -1566,7 +1550,7 @@ fn handle_button_press(event: *xlib.XButtonEvent, wm: *WindowManager) void {
     }
 
     if (bar_mod.window_to_bar(wm.bars, event.window)) |bar| {
-        const clicked_tag = bar.handle_click(display.handle, event.x, wm.config);
+        const clicked_tag = bar.handle_click(wm.display.handle, event.x, wm.config);
         if (clicked_tag) |tag_index| {
             const tag_mask: u32 = @as(u32, 1) << @intCast(tag_index);
             view(tag_mask, wm);
@@ -1580,7 +1564,7 @@ fn handle_button_press(event: *xlib.XButtonEvent, wm: *WindowManager) void {
         if (monitor_mod.selected_monitor) |selmon| {
             restack(selmon, wm);
         }
-        _ = xlib.XAllowEvents(display.handle, xlib.ReplayPointer, xlib.CurrentTime);
+        _ = xlib.XAllowEvents(wm.display.handle, xlib.ReplayPointer, xlib.CurrentTime);
     }
 
     const clean_state = clean_mask(event.state, wm);
@@ -1696,13 +1680,12 @@ fn unmanage(client: *Client, wm: *WindowManager) void {
 }
 
 fn handle_enter_notify(event: *xlib.XCrossingEvent, wm: *WindowManager) void {
-    const display = &wm.display;
-    if ((event.mode != xlib.NotifyNormal or event.detail == xlib.NotifyInferior) and event.window != display.root) {
+    if ((event.mode != xlib.NotifyNormal or event.detail == xlib.NotifyInferior) and event.window != wm.display.root) {
         return;
     }
 
     const client = client_mod.window_to_client(monitor_mod.monitors, event.window);
-    const target_mon = if (client) |c| c.monitor else monitor_mod.window_to_monitor(display.handle, display.root, event.window);
+    const target_mon = if (client) |c| c.monitor else monitor_mod.window_to_monitor(wm.display.handle, wm.display.root, event.window);
     const selmon = monitor_mod.selected_monitor;
 
     if (target_mon != selmon) {
@@ -1730,17 +1713,15 @@ fn handle_focus_in(event: *xlib.XFocusChangeEvent, wm: *WindowManager) void {
 }
 
 fn set_focus(client: *Client, wm: *WindowManager) void {
-    const display = &wm.display;
     if (!client.never_focus) {
-        _ = xlib.XSetInputFocus(display.handle, client.window, xlib.RevertToPointerRoot, xlib.CurrentTime);
-        _ = xlib.XChangeProperty(display.handle, display.root, wm.atoms.net_active_window, xlib.XA_WINDOW, 32, xlib.PropModeReplace, @ptrCast(&client.window), 1);
+        _ = xlib.XSetInputFocus(wm.display.handle, client.window, xlib.RevertToPointerRoot, xlib.CurrentTime);
+        _ = xlib.XChangeProperty(wm.display.handle, wm.display.root, wm.atoms.net_active_window, xlib.XA_WINDOW, 32, xlib.PropModeReplace, @ptrCast(&client.window), 1);
     }
     _ = send_event(client, wm.atoms.wm_take_focus, wm);
 }
 
 fn handle_motion_notify(event: *xlib.XMotionEvent, wm: *WindowManager) void {
-    const display = &wm.display;
-    if (event.window != display.root) return;
+    if (event.window != wm.display.root) return;
 
     const target_mon = monitor_mod.rect_to_monitor(event.x_root, event.y_root, 1, 1);
     if (target_mon != wm.last_motion_monitor and wm.last_motion_monitor != null) {
@@ -1754,7 +1735,6 @@ fn handle_motion_notify(event: *xlib.XMotionEvent, wm: *WindowManager) void {
 }
 
 fn handle_property_notify(event: *xlib.XPropertyEvent, wm: *WindowManager) void {
-    const display = &wm.display;
     if (event.state == xlib.PropertyDelete) {
         return;
     }
@@ -1763,7 +1743,7 @@ fn handle_property_notify(event: *xlib.XPropertyEvent, wm: *WindowManager) void 
 
     if (event.atom == xlib.XA_WM_TRANSIENT_FOR) {
         var trans: xlib.Window = 0;
-        if (!client.is_floating and xlib.XGetTransientForHint(display.handle, client.window, &trans) != 0) {
+        if (!client.is_floating and xlib.XGetTransientForHint(wm.display.handle, client.window, &trans) != 0) {
             client.is_floating = client_mod.window_to_client(monitor_mod.monitors, trans) != null;
             if (client.is_floating) {
                 if (client.monitor) |monitor| {
@@ -1784,30 +1764,27 @@ fn handle_property_notify(event: *xlib.XPropertyEvent, wm: *WindowManager) void 
 }
 
 fn unfocus_client(client: ?*Client, reset_input_focus: bool, wm: *WindowManager) void {
-    const display = &wm.display;
     const unfocus_target = client orelse return;
     grabbuttons(unfocus_target, false, wm);
-    _ = xlib.XSetWindowBorder(display.handle, unfocus_target.window, wm.config.border_unfocused);
+    _ = xlib.XSetWindowBorder(wm.display.handle, unfocus_target.window, wm.config.border_unfocused);
     if (reset_input_focus) {
-        _ = xlib.XSetInputFocus(display.handle, display.root, xlib.RevertToPointerRoot, xlib.CurrentTime);
-        _ = xlib.XDeleteProperty(display.handle, display.root, wm.atoms.net_active_window);
+        _ = xlib.XSetInputFocus(wm.display.handle, wm.display.root, xlib.RevertToPointerRoot, xlib.CurrentTime);
+        _ = xlib.XDeleteProperty(wm.display.handle, wm.display.root, wm.atoms.net_active_window);
     }
 }
 
 fn set_client_state(client: *Client, state: c_long, wm: *WindowManager) void {
-    const display = &wm.display;
     var data: [2]c_long = .{ state, xlib.None };
-    _ = xlib.c.XChangeProperty(display.handle, client.window, wm.atoms.wm_state, xlib.XA_ATOM, 32, xlib.PropModeReplace, @ptrCast(&data), 2);
+    _ = xlib.c.XChangeProperty(wm.display.handle, client.window, wm.atoms.wm_state, xlib.XA_ATOM, 32, xlib.PropModeReplace, @ptrCast(&data), 2);
 }
 
 fn update_numlock_mask(wm: *WindowManager) void {
-    const display = &wm.display;
     wm.numlock_mask = 0;
-    const modmap = xlib.XGetModifierMapping(display.handle);
+    const modmap = xlib.XGetModifierMapping(wm.display.handle);
     if (modmap == null) return;
     defer _ = xlib.XFreeModifiermap(modmap);
 
-    const numlock_keycode = xlib.XKeysymToKeycode(display.handle, xlib.XK_Num_Lock);
+    const numlock_keycode = xlib.XKeysymToKeycode(wm.display.handle, xlib.XK_Num_Lock);
 
     var modifier_index: usize = 0;
     while (modifier_index < 8) : (modifier_index += 1) {
@@ -1822,14 +1799,13 @@ fn update_numlock_mask(wm: *WindowManager) void {
 }
 
 fn grabbuttons(client: *Client, focused: bool, wm: *WindowManager) void {
-    const display = &wm.display;
     update_numlock_mask(wm);
     const modifiers = [_]c_uint{ 0, xlib.LockMask, wm.numlock_mask, wm.numlock_mask | xlib.LockMask };
 
-    _ = xlib.XUngrabButton(display.handle, xlib.AnyButton, xlib.AnyModifier, client.window);
+    _ = xlib.XUngrabButton(wm.display.handle, xlib.AnyButton, xlib.AnyModifier, client.window);
     if (!focused) {
         _ = xlib.XGrabButton(
-            display.handle,
+            wm.display.handle,
             xlib.AnyButton,
             xlib.AnyModifier,
             client.window,
@@ -1845,7 +1821,7 @@ fn grabbuttons(client: *Client, focused: bool, wm: *WindowManager) void {
         if (button.click == .client_win) {
             for (modifiers) |modifier| {
                 _ = xlib.XGrabButton(
-                    display.handle,
+                    wm.display.handle,
                     @intCast(button.button),
                     button.mod_mask | modifier,
                     client.window,
@@ -1862,7 +1838,6 @@ fn grabbuttons(client: *Client, focused: bool, wm: *WindowManager) void {
 }
 
 fn focus(target_client: ?*Client, wm: *WindowManager) void {
-    const display = &wm.display;
     const selmon = monitor_mod.selected_monitor orelse return;
 
     var focus_client = target_client;
@@ -1888,15 +1863,15 @@ fn focus(target_client: ?*Client, wm: *WindowManager) void {
         client_mod.detach_stack(client);
         client_mod.attach_stack(client);
         grabbuttons(client, true, wm);
-        _ = xlib.XSetWindowBorder(display.handle, client.window, wm.config.border_focused);
+        _ = xlib.XSetWindowBorder(wm.display.handle, client.window, wm.config.border_focused);
         if (!client.never_focus) {
-            _ = xlib.XSetInputFocus(display.handle, client.window, xlib.RevertToPointerRoot, xlib.CurrentTime);
-            _ = xlib.XChangeProperty(display.handle, display.root, wm.atoms.net_active_window, xlib.XA_WINDOW, 32, xlib.PropModeReplace, @ptrCast(&client.window), 1);
+            _ = xlib.XSetInputFocus(wm.display.handle, client.window, xlib.RevertToPointerRoot, xlib.CurrentTime);
+            _ = xlib.XChangeProperty(wm.display.handle, wm.display.root, wm.atoms.net_active_window, xlib.XA_WINDOW, 32, xlib.PropModeReplace, @ptrCast(&client.window), 1);
         }
         _ = send_event(client, wm.atoms.wm_take_focus, wm);
     } else {
-        _ = xlib.XSetInputFocus(display.handle, display.root, xlib.RevertToPointerRoot, xlib.CurrentTime);
-        _ = xlib.XDeleteProperty(display.handle, display.root, wm.atoms.net_active_window);
+        _ = xlib.XSetInputFocus(wm.display.handle, wm.display.root, xlib.RevertToPointerRoot, xlib.CurrentTime);
+        _ = xlib.XDeleteProperty(wm.display.handle, wm.display.root, wm.atoms.net_active_window);
     }
 
     const current_selmon = monitor_mod.selected_monitor orelse return;
@@ -1912,12 +1887,11 @@ fn focus(target_client: ?*Client, wm: *WindowManager) void {
 }
 
 fn restack(monitor: *Monitor, wm: *WindowManager) void {
-    const display = &wm.display;
     wm.invalidate_bars();
     const selected_client = monitor.sel orelse return;
 
     if (selected_client.is_floating or monitor.lt[monitor.sel_lt] == null) {
-        _ = xlib.XRaiseWindow(display.handle, selected_client.window);
+        _ = xlib.XRaiseWindow(wm.display.handle, selected_client.window);
     }
 
     if (monitor.lt[monitor.sel_lt] != null) {
@@ -1928,17 +1902,17 @@ fn restack(monitor: *Monitor, wm: *WindowManager) void {
         var current = monitor.stack;
         while (current) |client| {
             if (!client.is_floating and client_mod.is_visible(client)) {
-                _ = xlib.c.XConfigureWindow(display.handle, client.window, xlib.c.CWSibling | xlib.c.CWStackMode, &window_changes);
+                _ = xlib.c.XConfigureWindow(wm.display.handle, client.window, xlib.c.CWSibling | xlib.c.CWStackMode, &window_changes);
                 window_changes.sibling = client.window;
             }
             current = client.stack_next;
         }
     }
 
-    _ = xlib.XSync(display.handle, xlib.False);
+    _ = xlib.XSync(wm.display.handle, xlib.False);
 
     var discard_event: xlib.XEvent = undefined;
-    while (xlib.c.XCheckMaskEvent(display.handle, xlib.EnterWindowMask, &discard_event) != 0) {}
+    while (xlib.c.XCheckMaskEvent(wm.display.handle, xlib.EnterWindowMask, &discard_event) != 0) {}
 }
 
 fn arrange(monitor: *Monitor, wm: *WindowManager) void {
@@ -2001,10 +1975,9 @@ fn scroll_to_window(client: *Client, animate: bool, wm: *WindowManager) void {
 }
 
 fn showhide_client(client: ?*Client, wm: *WindowManager) void {
-    const display = &wm.display;
     const target = client orelse return;
     if (client_mod.is_visible(target)) {
-        _ = xlib.XMoveWindow(display.handle, target.window, target.x, target.y);
+        _ = xlib.XMoveWindow(wm.display.handle, target.window, target.x, target.y);
         const monitor = target.monitor orelse return;
         if ((monitor.lt[monitor.sel_lt] == null or target.is_floating) and !target.is_fullscreen) {
             tiling.resize(target, target.x, target.y, target.width, target.height, false);
@@ -2013,7 +1986,7 @@ fn showhide_client(client: ?*Client, wm: *WindowManager) void {
     } else {
         showhide_client(target.stack_next, wm);
         const client_width = target.width + 2 * target.border_width;
-        _ = xlib.XMoveWindow(display.handle, target.window, -2 * client_width, target.y);
+        _ = xlib.XMoveWindow(wm.display.handle, target.window, -2 * client_width, target.y);
     }
 }
 
@@ -2022,11 +1995,10 @@ fn showhide(monitor: *Monitor, wm: *WindowManager) void {
 }
 
 fn update_size_hints(client: *Client, wm: *WindowManager) void {
-    const display = &wm.display;
     var size_hints: xlib.XSizeHints = undefined;
     var msize: c_long = 0;
 
-    if (xlib.XGetWMNormalHints(display.handle, client.window, &size_hints, &msize) == 0) {
+    if (xlib.XGetWMNormalHints(wm.display.handle, client.window, &size_hints, &msize) == 0) {
         size_hints.flags = xlib.PSize;
     }
 
@@ -2081,14 +2053,13 @@ fn update_size_hints(client: *Client, wm: *WindowManager) void {
 }
 
 fn update_wm_hints(client: *Client, wm: *WindowManager) void {
-    const display = &wm.display;
-    const wmh = xlib.XGetWMHints(display.handle, client.window);
+    const wmh = xlib.XGetWMHints(wm.display.handle, client.window);
     if (wmh) |hints| {
         defer _ = xlib.XFree(@ptrCast(hints));
 
         if (client == (monitor_mod.selected_monitor orelse return).sel and (hints.*.flags & xlib.XUrgencyHint) != 0) {
             hints.*.flags = hints.*.flags & ~@as(c_long, xlib.XUrgencyHint);
-            _ = xlib.XSetWMHints(display.handle, client.window, hints);
+            _ = xlib.XSetWMHints(wm.display.handle, client.window, hints);
         } else {
             client.is_urgent = (hints.*.flags & xlib.XUrgencyHint) != 0;
         }
@@ -2123,14 +2094,13 @@ fn update_title(client: *Client, wm: *WindowManager) void {
 }
 
 fn get_atom_prop(client: *Client, prop: xlib.Atom, wm: *WindowManager) xlib.Atom {
-    const display = &wm.display;
     var actual_type: xlib.Atom = undefined;
     var actual_format: c_int = undefined;
     var num_items: c_ulong = undefined;
     var bytes_after: c_ulong = undefined;
     var prop_data: [*c]u8 = undefined;
 
-    if (xlib.XGetWindowProperty(display.handle, client.window, prop, 0, @sizeOf(xlib.Atom), xlib.False, xlib.XA_ATOM, &actual_type, &actual_format, &num_items, &bytes_after, &prop_data) == 0 and prop_data != null) {
+    if (xlib.XGetWindowProperty(wm.display.handle, client.window, prop, 0, @sizeOf(xlib.Atom), xlib.False, xlib.XA_ATOM, &actual_type, &actual_format, &num_items, &bytes_after, &prop_data) == 0 and prop_data != null) {
         const atom: xlib.Atom = @as(*xlib.Atom, @ptrCast(@alignCast(prop_data))).*;
         _ = xlib.XFree(@ptrCast(prop_data));
         return atom;
@@ -2139,11 +2109,10 @@ fn get_atom_prop(client: *Client, prop: xlib.Atom, wm: *WindowManager) xlib.Atom
 }
 
 fn get_text_prop(window: xlib.Window, atom: xlib.Atom, text: *[256]u8, wm: *WindowManager) bool {
-    const display = &wm.display;
     var name: xlib.XTextProperty = undefined;
     text[0] = 0;
 
-    if (xlib.XGetTextProperty(display.handle, window, &name, atom) == 0 or name.nitems == 0) {
+    if (xlib.XGetTextProperty(wm.display.handle, window, &name, atom) == 0 or name.nitems == 0) {
         return false;
     }
 
@@ -2154,7 +2123,7 @@ fn get_text_prop(window: xlib.Window, atom: xlib.Atom, text: *[256]u8, wm: *Wind
     } else {
         var list: [*c][*c]u8 = undefined;
         var count: c_int = undefined;
-        if (xlib.XmbTextPropertyToTextList(display.handle, &name, &list, &count) >= xlib.Success and count > 0 and list[0] != null) {
+        if (xlib.XmbTextPropertyToTextList(wm.display.handle, &name, &list, &count) >= xlib.Success and count > 0 and list[0] != null) {
             const str = std.mem.sliceTo(list[0], 0);
             const copy_len = @min(str.len, 255);
             @memcpy(text[0..copy_len], str[0..copy_len]);
@@ -2168,9 +2137,8 @@ fn get_text_prop(window: xlib.Window, atom: xlib.Atom, text: *[256]u8, wm: *Wind
 }
 
 fn apply_rules(client: *Client, wm: *WindowManager) void {
-    const display = &wm.display;
     var class_hint: xlib.XClassHint = .{ .res_name = null, .res_class = null };
-    _ = xlib.XGetClassHint(display.handle, client.window, &class_hint);
+    _ = xlib.XGetClassHint(wm.display.handle, client.window, &class_hint);
 
     const class_str: []const u8 = if (class_hint.res_class) |ptr| std.mem.sliceTo(ptr, 0) else "";
     const instance_str: []const u8 = if (class_hint.res_name) |ptr| std.mem.sliceTo(ptr, 0) else "";
@@ -2227,14 +2195,13 @@ fn apply_rules(client: *Client, wm: *WindowManager) void {
 }
 
 fn update_client_list(wm: *WindowManager) void {
-    const display = &wm.display;
-    _ = xlib.XDeleteProperty(display.handle, display.root, wm.atoms.net_client_list);
+    _ = xlib.XDeleteProperty(wm.display.handle, wm.display.root, wm.atoms.net_client_list);
 
     var current_monitor = monitor_mod.monitors;
     while (current_monitor) |monitor| {
         var current_client = monitor.clients;
         while (current_client) |client| {
-            _ = xlib.XChangeProperty(display.handle, display.root, wm.atoms.net_client_list, xlib.XA_WINDOW, 32, xlib.PropModeAppend, @ptrCast(&client.window), 1);
+            _ = xlib.XChangeProperty(wm.display.handle, wm.display.root, wm.atoms.net_client_list, xlib.XA_WINDOW, 32, xlib.PropModeAppend, @ptrCast(&client.window), 1);
             current_client = client.next;
         }
         current_monitor = monitor.next;
@@ -2242,12 +2209,11 @@ fn update_client_list(wm: *WindowManager) void {
 }
 
 fn send_event(client: *Client, protocol: xlib.Atom, wm: *WindowManager) bool {
-    const display = &wm.display;
     var protocols: [*c]xlib.Atom = undefined;
     var num_protocols: c_int = 0;
     var exists = false;
 
-    if (xlib.XGetWMProtocols(display.handle, client.window, &protocols, &num_protocols) != 0) {
+    if (xlib.XGetWMProtocols(wm.display.handle, client.window, &protocols, &num_protocols) != 0) {
         var index: usize = 0;
         while (index < @as(usize, @intCast(num_protocols))) : (index += 1) {
             if (protocols[index] == protocol) {
@@ -2266,22 +2232,21 @@ fn send_event(client: *Client, protocol: xlib.Atom, wm: *WindowManager) bool {
         event.xclient.format = 32;
         event.xclient.data.l[0] = @intCast(protocol);
         event.xclient.data.l[1] = xlib.CurrentTime;
-        _ = xlib.XSendEvent(display.handle, client.window, xlib.False, xlib.NoEventMask, &event);
+        _ = xlib.XSendEvent(wm.display.handle, client.window, xlib.False, xlib.NoEventMask, &event);
     }
     return exists;
 }
 
 fn set_urgent(client: *Client, urgent: bool, wm: *WindowManager) void {
-    const display = &wm.display;
     client.is_urgent = urgent;
-    const wmh = xlib.XGetWMHints(display.handle, client.window);
+    const wmh = xlib.XGetWMHints(wm.display.handle, client.window);
     if (wmh) |hints| {
         if (urgent) {
             hints.*.flags = hints.*.flags | xlib.XUrgencyHint;
         } else {
             hints.*.flags = hints.*.flags & ~@as(c_long, xlib.XUrgencyHint);
         }
-        _ = xlib.XSetWMHints(display.handle, client.window, hints);
+        _ = xlib.XSetWMHints(wm.display.handle, client.window, hints);
         _ = xlib.XFree(@ptrCast(hints));
     }
 }
