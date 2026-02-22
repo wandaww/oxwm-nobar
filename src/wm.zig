@@ -27,6 +27,12 @@ const Monitor = monitor_mod.Monitor;
 const Bar = bar_mod.Bar;
 const Config = config_mod.Config;
 
+// Standard ICCCM WM_STATE values used by get_state and set_client_state.
+pub const NormalState: c_long = 1;
+pub const WithdrawnState: c_long = 0;
+pub const IconicState: c_long = 3;
+pub const IsViewable: c_int = 2;
+
 pub const Cursors = struct {
     normal: xlib.Cursor,
     resize: xlib.Cursor,
@@ -99,7 +105,6 @@ pub const WindowManager = struct {
         tiling.set_screen_size(display.screen_width(), display.screen_height());
 
         monitor_mod.init(allocator);
-        // client_mod.init(allocator);
 
         var wm = WindowManager{
             .allocator = allocator,
@@ -401,6 +406,121 @@ pub const WindowManager = struct {
 
     pub fn ungrab_keybinds(self: *WindowManager) void {
         _ = xlib.XUngrabKey(self.display.handle, xlib.AnyKey, xlib.AnyModifier, self.display.root);
+    }
+
+    /// Walk the existing window tree and call `manage_fn` for each window
+    /// that should be managed. Non-transient windows are processed first
+    /// so transient (dialog) windows can be stacked on top.
+    pub fn scan_existing_windows(self: *WindowManager, manage_fn: fn (xlib.Window, *xlib.XWindowAttributes, *WindowManager) void) void {
+        var root_return: xlib.Window = undefined;
+        var parent_return: xlib.Window = undefined;
+        var children: [*c]xlib.Window = undefined;
+        var num_children: c_uint = undefined;
+
+        if (xlib.XQueryTree(self.display.handle, self.display.root, &root_return, &parent_return, &children, &num_children) == 0) {
+            return;
+        }
+
+        var index: c_uint = 0;
+        while (index < num_children) : (index += 1) {
+            var window_attrs: xlib.XWindowAttributes = undefined;
+            if (xlib.XGetWindowAttributes(self.display.handle, children[index], &window_attrs) == 0) {
+                continue;
+            }
+            if (window_attrs.override_redirect != 0) continue;
+
+            var trans: xlib.Window = 0;
+            if (xlib.XGetTransientForHint(self.display.handle, children[index], &trans) != 0) continue;
+
+            if (window_attrs.map_state == IsViewable or self.get_state(children[index]) == IconicState) {
+                manage_fn(children[index], &window_attrs, self);
+            }
+        }
+
+        index = 0;
+        while (index < num_children) : (index += 1) {
+            var window_attrs: xlib.XWindowAttributes = undefined;
+            if (xlib.XGetWindowAttributes(self.display.handle, children[index], &window_attrs) == 0) {
+                continue;
+            }
+            var trans: xlib.Window = 0;
+            if (xlib.XGetTransientForHint(self.display.handle, children[index], &trans) != 0) {
+                if (window_attrs.map_state == IsViewable or self.get_state(children[index]) == IconicState) {
+                    manage_fn(children[index], &window_attrs, self);
+                }
+            }
+        }
+
+        if (children != null) _ = xlib.XFree(@ptrCast(children));
+    }
+
+    /// Reads the ICCCM WM_STATE property for a window.
+    /// Returns WithdrawnState if the property is absent or malformed.
+    pub fn get_state(self: *WindowManager, window: xlib.Window) c_long {
+        var actual_type: xlib.Atom = 0;
+        var actual_format: c_int = 0;
+        var num_items: c_ulong = 0;
+        var bytes_after: c_ulong = 0;
+        var prop: [*c]u8 = null;
+
+        const result = xlib.XGetWindowProperty(
+            self.display.handle,
+            window,
+            self.atoms.wm_state,
+            0,
+            2,
+            xlib.False,
+            self.atoms.wm_state,
+            &actual_type,
+            &actual_format,
+            &num_items,
+            &bytes_after,
+            &prop,
+        );
+
+        if (result != 0 or actual_type != self.atoms.wm_state or num_items < 1) {
+            if (prop != null) _ = xlib.XFree(prop);
+            return WithdrawnState;
+        }
+
+        const state: c_long = @as(*c_long, @ptrCast(@alignCast(prop))).*;
+        _ = xlib.XFree(prop);
+        return state;
+    }
+
+    /// Run the event loop until `self.running` is set to false.
+    ///
+    /// `event_fn` dispatches a single XEvent
+    /// `tick_fn` is called once per loop iteration to advance animations
+    pub fn run(
+        self: *WindowManager,
+        event_fn: fn (*xlib.XEvent, *WindowManager) void,
+        tick_fn: fn (*WindowManager) void,
+    ) void {
+        var fds = [_]std.posix.pollfd{
+            .{ .fd = self.x11_fd, .events = std.posix.POLL.IN, .revents = 0 },
+        };
+
+        _ = xlib.XSync(self.display.handle, xlib.False);
+
+        while (self.running) {
+            while (xlib.XPending(self.display.handle) > 0) {
+                var event = self.display.next_event();
+                event_fn(&event, self);
+            }
+
+            tick_fn(self);
+
+            var current_bar = self.bars;
+            while (current_bar) |bar| {
+                bar.update_blocks();
+                bar.draw(self.display.handle, self.config);
+                current_bar = bar.next;
+            }
+
+            const poll_timeout: i32 = if (self.scroll_animation.is_active()) 16 else 1000;
+            _ = std.posix.poll(&fds, poll_timeout) catch 0;
+        }
     }
 
     pub fn rebuild_bar_blocks(self: *WindowManager) void {

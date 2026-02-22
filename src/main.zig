@@ -19,9 +19,6 @@ const WindowManager = wm_mod.WindowManager;
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
 const NormalState: c_long = 1;
-const WithdrawnState: c_long = 0;
-const IconicState: c_long = 3;
-const IsViewable: c_int = 2;
 const snap_distance: i32 = 32;
 
 /// File descriptor of the X11 connection, used in spawn_child_setup.
@@ -200,11 +197,11 @@ pub fn main() !void {
     std.debug.print("atoms initialized with EWMH support\n", .{});
 
     wm.grab_keybinds();
-    scan_existing_windows(&wm);
+    wm.scan_existing_windows(manage);
 
     try run_autostart_commands(allocator, wm.config.autostart.items);
     std.debug.print("entering event loop\n", .{});
-    run_event_loop(&wm);
+    wm.run(handle_event, tick_animations);
 
     lua.deinit();
     std.debug.print("oxwm exiting\n", .{});
@@ -268,114 +265,6 @@ fn initialize_default_config(cfg: *config_mod.Config) void {
 
     cfg.add_button(.{ .click = .client_win, .mod_mask = mod_key, .button = 1, .action = .move_mouse }) catch {};
     cfg.add_button(.{ .click = .client_win, .mod_mask = mod_key, .button = 3, .action = .resize_mouse }) catch {};
-}
-
-fn get_state(window: xlib.Window, wm: *WindowManager) c_long {
-    var actual_type: xlib.Atom = 0;
-    var actual_format: c_int = 0;
-    var num_items: c_ulong = 0;
-    var bytes_after: c_ulong = 0;
-    var prop: [*c]u8 = null;
-
-    const result = xlib.XGetWindowProperty(
-        wm.display.handle,
-        window,
-        wm.atoms.wm_state,
-        0,
-        2,
-        xlib.False,
-        wm.atoms.wm_state,
-        &actual_type,
-        &actual_format,
-        &num_items,
-        &bytes_after,
-        &prop,
-    );
-
-    if (result != 0 or actual_type != wm.atoms.wm_state or num_items < 1) {
-        if (prop != null) {
-            _ = xlib.XFree(prop);
-        }
-        return WithdrawnState;
-    }
-
-    const state: c_long = @as(*c_long, @ptrCast(@alignCast(prop))).*;
-    _ = xlib.XFree(prop);
-    return state;
-}
-
-fn scan_existing_windows(wm: *WindowManager) void {
-    var root_return: xlib.Window = undefined;
-    var parent_return: xlib.Window = undefined;
-    var children: [*c]xlib.Window = undefined;
-    var num_children: c_uint = undefined;
-
-    if (xlib.XQueryTree(wm.display.handle, wm.display.root, &root_return, &parent_return, &children, &num_children) == 0) {
-        return;
-    }
-
-    var index: c_uint = 0;
-    while (index < num_children) : (index += 1) {
-        var window_attrs: xlib.XWindowAttributes = undefined;
-        if (xlib.XGetWindowAttributes(wm.display.handle, children[index], &window_attrs) == 0) {
-            continue;
-        }
-        if (window_attrs.override_redirect != 0) {
-            continue;
-        }
-        var trans: xlib.Window = 0;
-        if (xlib.XGetTransientForHint(wm.display.handle, children[index], &trans) != 0) {
-            continue;
-        }
-        if (window_attrs.map_state == IsViewable or get_state(children[index], wm) == IconicState) {
-            manage(children[index], &window_attrs, wm);
-        }
-    }
-
-    index = 0;
-    while (index < num_children) : (index += 1) {
-        var window_attrs: xlib.XWindowAttributes = undefined;
-        if (xlib.XGetWindowAttributes(wm.display.handle, children[index], &window_attrs) == 0) {
-            continue;
-        }
-        var trans: xlib.Window = 0;
-        if (xlib.XGetTransientForHint(wm.display.handle, children[index], &trans) != 0) {
-            if (window_attrs.map_state == IsViewable or get_state(children[index], wm) == IconicState) {
-                manage(children[index], &window_attrs, wm);
-            }
-        }
-    }
-
-    if (children != null) {
-        _ = xlib.XFree(@ptrCast(children));
-    }
-}
-
-fn run_event_loop(wm: *WindowManager) void {
-    var fds = [_]std.posix.pollfd{
-        .{ .fd = wm.x11_fd, .events = std.posix.POLL.IN, .revents = 0 },
-    };
-
-    _ = xlib.XSync(wm.display.handle, xlib.False);
-
-    while (wm.running) {
-        while (xlib.XPending(wm.display.handle) > 0) {
-            var event = wm.display.next_event();
-            handle_event(&event, wm);
-        }
-
-        tick_animations(wm);
-
-        var current_bar = wm.bars;
-        while (current_bar) |bar| {
-            bar.update_blocks();
-            bar.draw(wm.display.handle, wm.config);
-            current_bar = bar.next;
-        }
-
-        const poll_timeout: i32 = if (wm.scroll_animation.is_active()) 16 else 1000;
-        _ = std.posix.poll(&fds, poll_timeout) catch 0;
-    }
 }
 
 fn handle_event(event: *xlib.XEvent, wm: *WindowManager) void {
