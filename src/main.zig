@@ -535,7 +535,7 @@ fn handle_key_press(event: *xlib.XKeyEvent, wm: *WindowManager) void {
 
 fn execute_action(action: config_mod.Action, int_arg: i32, str_arg: ?[]const u8, wm: *WindowManager) void {
     switch (action) {
-        .spawn_terminal => spawn_terminal(wm),
+        .spawn_terminal => spawn_terminal(wm.config.terminal),
         .spawn => {
             if (str_arg) |cmd| spawn_command(cmd);
         },
@@ -623,13 +623,11 @@ fn spawn_command(cmd: []const u8) void {
     }
 }
 
-// TODO: take in the terminal cmd directly.
-fn spawn_terminal(wm: *WindowManager) void {
+fn spawn_terminal(terminal: []const u8) void {
     const pid = std.posix.fork() catch return;
     if (pid == 0) {
         spawn_child_setup();
         var term_buf: [256]u8 = undefined;
-        const terminal = wm.config.terminal;
         if (terminal.len >= term_buf.len) {
             std.posix.exit(1);
         }
