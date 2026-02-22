@@ -53,6 +53,7 @@ pub const WindowManager = struct {
 
     atoms: Atoms,
     cursors: Cursors,
+    /// Cached numlock modifier mask, refreshed before any key/button grab.
     numlock_mask: c_uint,
 
     config: Config,
@@ -324,6 +325,91 @@ pub const WindowManager = struct {
 
     pub fn window_to_bar(self: *WindowManager, win: xlib.Window) ?*Bar {
         return bar_mod.window_to_bar(self.bars, win);
+    }
+
+    /// Refreshes the cached numlock modifier bitmask from the X server's
+    /// current modifier map. Called before any key or button grab so that
+    /// grabs cover all numlock combinations.
+    pub fn update_numlock_mask(self: *WindowManager) void {
+        self.numlock_mask = 0;
+        const modmap = xlib.XGetModifierMapping(self.display.handle);
+        if (modmap == null) return;
+        defer _ = xlib.XFreeModifiermap(modmap);
+
+        const numlock_keycode = xlib.XKeysymToKeycode(self.display.handle, xlib.XK_Num_Lock);
+
+        var modifier_index: usize = 0;
+        while (modifier_index < 8) : (modifier_index += 1) {
+            var key_index: usize = 0;
+            while (key_index < @as(usize, @intCast(modmap.*.max_keypermod))) : (key_index += 1) {
+                const keycode = modmap.*.modifiermap[modifier_index * @as(usize, @intCast(modmap.*.max_keypermod)) + key_index];
+                if (keycode == numlock_keycode) {
+                    self.numlock_mask = @as(c_uint, 1) << @intCast(modifier_index);
+                }
+            }
+        }
+    }
+
+    /// Grabs all configured keybinds and mouse buttons from the X server.
+    /// Replaces any existing grabs. Call after config load or reload.
+    pub fn grab_keybinds(self: *WindowManager) void {
+        self.update_numlock_mask();
+        const modifiers = [_]c_uint{ 0, xlib.LockMask, self.numlock_mask, self.numlock_mask | xlib.LockMask };
+
+        _ = xlib.XUngrabKey(self.display.handle, xlib.AnyKey, xlib.AnyModifier, self.display.root);
+
+        for (self.config.keybinds.items) |keybind| {
+            if (keybind.key_count == 0) continue;
+            const first_key = keybind.keys[0];
+            const keycode = xlib.XKeysymToKeycode(self.display.handle, @intCast(first_key.keysym));
+            if (keycode != 0) {
+                for (modifiers) |modifier| {
+                    _ = xlib.XGrabKey(
+                        self.display.handle,
+                        keycode,
+                        first_key.mod_mask | modifier,
+                        self.display.root,
+                        xlib.True,
+                        xlib.GrabModeAsync,
+                        xlib.GrabModeAsync,
+                    );
+                }
+            }
+        }
+
+        for (self.config.buttons.items) |button| {
+            if (button.click == .client_win) {
+                for (modifiers) |modifier| {
+                    _ = xlib.XGrabButton(
+                        self.display.handle,
+                        @intCast(button.button),
+                        button.mod_mask | modifier,
+                        self.display.root,
+                        xlib.True,
+                        xlib.ButtonPressMask | xlib.ButtonReleaseMask | xlib.PointerMotionMask,
+                        xlib.GrabModeAsync,
+                        xlib.GrabModeAsync,
+                        xlib.None,
+                        xlib.None,
+                    );
+                }
+            }
+        }
+
+        std.debug.print("grabbed {d} keybinds from config\n", .{self.config.keybinds.items.len});
+    }
+
+    pub fn ungrab_keybinds(self: *WindowManager) void {
+        _ = xlib.XUngrabKey(self.display.handle, xlib.AnyKey, xlib.AnyModifier, self.display.root);
+    }
+
+    pub fn rebuild_bar_blocks(self: *WindowManager) void {
+        var current_bar = self.bars;
+        while (current_bar) |bar| {
+            bar.clear_blocks();
+            self.populate_bar_blocks(bar);
+            current_bar = bar.next;
+        }
     }
 };
 

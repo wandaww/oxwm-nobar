@@ -12,7 +12,6 @@ const bar_mod = @import("bar/bar.zig");
 const config_mod = @import("config/config.zig");
 const lua = @import("config/lua.zig");
 
-const Display = display_mod.Display;
 const Client = client_mod.Client;
 const Monitor = monitor_mod.Monitor;
 const WindowManager = wm_mod.WindowManager;
@@ -200,7 +199,7 @@ pub fn main() !void {
     std.debug.print("successfully became window manager\n", .{});
     std.debug.print("atoms initialized with EWMH support\n", .{});
 
-    grab_keybinds(&wm);
+    wm.grab_keybinds();
     scan_existing_windows(&wm);
 
     try run_autostart_commands(allocator, wm.config.autostart.items);
@@ -269,53 +268,6 @@ fn initialize_default_config(cfg: *config_mod.Config) void {
 
     cfg.add_button(.{ .click = .client_win, .mod_mask = mod_key, .button = 1, .action = .move_mouse }) catch {};
     cfg.add_button(.{ .click = .client_win, .mod_mask = mod_key, .button = 3, .action = .resize_mouse }) catch {};
-}
-
-fn grab_keybinds(wm: *WindowManager) void {
-    update_numlock_mask(wm);
-    const modifiers = [_]c_uint{ 0, xlib.LockMask, wm.numlock_mask, wm.numlock_mask | xlib.LockMask };
-
-    _ = xlib.XUngrabKey(wm.display.handle, xlib.AnyKey, xlib.AnyModifier, wm.display.root);
-
-    for (wm.config.keybinds.items) |keybind| {
-        if (keybind.key_count == 0) continue;
-        const first_key = keybind.keys[0];
-        const keycode = xlib.XKeysymToKeycode(wm.display.handle, @intCast(first_key.keysym));
-        if (keycode != 0) {
-            for (modifiers) |modifier| {
-                _ = xlib.XGrabKey(
-                    wm.display.handle,
-                    keycode,
-                    first_key.mod_mask | modifier,
-                    wm.display.root,
-                    xlib.True,
-                    xlib.GrabModeAsync,
-                    xlib.GrabModeAsync,
-                );
-            }
-        }
-    }
-
-    for (wm.config.buttons.items) |button| {
-        if (button.click == .client_win) {
-            for (modifiers) |modifier| {
-                _ = xlib.XGrabButton(
-                    wm.display.handle,
-                    @intCast(button.button),
-                    button.mod_mask | modifier,
-                    wm.display.root,
-                    xlib.True,
-                    xlib.ButtonPressMask | xlib.ButtonReleaseMask | xlib.PointerMotionMask,
-                    xlib.GrabModeAsync,
-                    xlib.GrabModeAsync,
-                    xlib.None,
-                    xlib.None,
-                );
-            }
-        }
-    }
-
-    std.debug.print("grabbed {d} keybinds from config\n", .{wm.config.keybinds.items.len});
 }
 
 fn get_state(window: xlib.Window, wm: *WindowManager) c_long {
@@ -734,7 +686,7 @@ fn execute_action(action: config_mod.Action, int_arg: i32, str_arg: ?[]const u8,
 fn reload_config(wm: *WindowManager) void {
     std.debug.print("reloading config...\n", .{});
 
-    ungrab_keybinds(wm);
+    wm.ungrab_keybinds();
 
     wm.config.keybinds.clearRetainingCapacity();
     wm.config.buttons.clearRetainingCapacity();
@@ -763,22 +715,9 @@ fn reload_config(wm: *WindowManager) void {
     bar_mod.destroy_bars(wm.bars, gpa.allocator(), wm.display.handle);
     wm.bars = null;
     wm.setup_bars();
-    rebuild_bar_blocks(wm);
+    wm.rebuild_bar_blocks();
 
-    grab_keybinds(wm);
-}
-
-fn rebuild_bar_blocks(wm: *WindowManager) void {
-    var current_bar = wm.bars;
-    while (current_bar) |bar| {
-        bar.clear_blocks();
-        wm.populate_bar_blocks(bar);
-        current_bar = bar.next;
-    }
-}
-
-fn ungrab_keybinds(wm: *WindowManager) void {
-    _ = xlib.XUngrabKey(wm.display.handle, xlib.AnyKey, xlib.AnyModifier, wm.display.root);
+    wm.grab_keybinds();
 }
 
 fn spawn_child_setup() void {
@@ -1778,28 +1717,8 @@ fn set_client_state(client: *Client, state: c_long, wm: *WindowManager) void {
     _ = xlib.c.XChangeProperty(wm.display.handle, client.window, wm.atoms.wm_state, xlib.XA_ATOM, 32, xlib.PropModeReplace, @ptrCast(&data), 2);
 }
 
-fn update_numlock_mask(wm: *WindowManager) void {
-    wm.numlock_mask = 0;
-    const modmap = xlib.XGetModifierMapping(wm.display.handle);
-    if (modmap == null) return;
-    defer _ = xlib.XFreeModifiermap(modmap);
-
-    const numlock_keycode = xlib.XKeysymToKeycode(wm.display.handle, xlib.XK_Num_Lock);
-
-    var modifier_index: usize = 0;
-    while (modifier_index < 8) : (modifier_index += 1) {
-        var key_index: usize = 0;
-        while (key_index < @as(usize, @intCast(modmap.*.max_keypermod))) : (key_index += 1) {
-            const keycode = modmap.*.modifiermap[modifier_index * @as(usize, @intCast(modmap.*.max_keypermod)) + key_index];
-            if (keycode == numlock_keycode) {
-                wm.numlock_mask = @as(c_uint, 1) << @intCast(modifier_index);
-            }
-        }
-    }
-}
-
 fn grabbuttons(client: *Client, focused: bool, wm: *WindowManager) void {
-    update_numlock_mask(wm);
+    wm.update_numlock_mask();
     const modifiers = [_]c_uint{ 0, xlib.LockMask, wm.numlock_mask, wm.numlock_mask | xlib.LockMask };
 
     _ = xlib.XUngrabButton(wm.display.handle, xlib.AnyButton, xlib.AnyModifier, client.window);
