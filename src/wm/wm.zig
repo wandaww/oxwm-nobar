@@ -1,28 +1,29 @@
 const std = @import("std");
 const mem = std.mem;
 
-const display_mod = @import("x11/display.zig");
-const xlib = @import("x11/xlib.zig");
-const events = @import("x11/events.zig");
-const atoms_mod = @import("x11/atoms.zig");
-const chord_mod = @import("keyboard/chord.zig");
-const client_mod = @import("client.zig");
-const monitor_mod = @import("monitor.zig");
-const bar_mod = @import("bar/bar.zig");
-const blocks_mod = @import("bar/blocks/blocks.zig");
-const config_mod = @import("config/config.zig");
-const overlay_mod = @import("overlay.zig");
-const animations = @import("animations.zig");
-const tiling = @import("layouts/tiling.zig");
-const monocle = @import("layouts/monocle.zig");
-const floating = @import("layouts/floating.zig");
-const scrolling = @import("layouts/scrolling.zig");
-const grid = @import("layouts/grid.zig");
+const display_mod = @import("../x11/display.zig");
+const xlib = @import("../x11/xlib.zig");
+const atoms_mod = @import("../x11/atoms.zig");
+const chord_mod = @import("../keyboard/chord.zig");
+const monitor_mod = @import("../monitor.zig");
+const bar_mod = @import("../bar/bar.zig");
+const blocks_mod = @import("../bar/blocks/blocks.zig");
+const config_mod = @import("../config/config.zig");
+const overlay_mod = @import("../overlay.zig");
+const animations = @import("../animations.zig");
+const tiling = @import("../layouts/tiling.zig");
+const monocle = @import("../layouts/monocle.zig");
+const floating = @import("../layouts/floating.zig");
+const scrolling = @import("../layouts/scrolling.zig");
+const grid = @import("../layouts/grid.zig");
+
+pub const core = @import("core.zig");
+pub const actions = @import("actions.zig");
+pub const handlers = @import("handlers.zig");
 
 const Display = display_mod.Display;
 const Atoms = atoms_mod.Atoms;
 const ChordState = chord_mod.ChordState;
-const Client = client_mod.Client;
 const Monitor = monitor_mod.Monitor;
 const Bar = bar_mod.Bar;
 const Config = config_mod.Config;

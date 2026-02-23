@@ -184,3 +184,63 @@ pub const Config = struct {
         try self.autostart.append(self.allocator, cmd);
     }
 };
+
+pub fn initialize_default_config(cfg: *Config) void {
+    const mod_key: u32 = 1 << 6;
+    const shift_key: u32 = 1 << 0;
+    const control_key: u32 = 1 << 2;
+
+    cfg.add_keybind(make_keybind(mod_key, 0xff0d, .spawn_terminal)) catch {};
+    cfg.add_keybind(make_keybind_str(mod_key, 'd', .spawn, "rofi -show drun")) catch {};
+    cfg.add_keybind(make_keybind_str(mod_key, 's', .spawn, "maim -s | xclip -selection clipboard -t image/png")) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'q', .kill_client)) catch {};
+    cfg.add_keybind(make_keybind(mod_key | shift_key, 'q', .quit)) catch {};
+    cfg.add_keybind(make_keybind(mod_key | shift_key, 'r', .reload_config)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'j', .focus_next)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'k', .focus_prev)) catch {};
+    cfg.add_keybind(make_keybind(mod_key | shift_key, 'j', .move_next)) catch {};
+    cfg.add_keybind(make_keybind(mod_key | shift_key, 'k', .move_prev)) catch {};
+    cfg.add_keybind(make_keybind_int(mod_key, 'h', .resize_master, -50)) catch {};
+    cfg.add_keybind(make_keybind_int(mod_key, 'l', .resize_master, 50)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'i', .inc_master)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'p', .dec_master)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'a', .toggle_gaps)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'f', .toggle_fullscreen)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 0x0020, .toggle_floating)) catch {};
+    cfg.add_keybind(make_keybind(mod_key, 'n', .cycle_layout)) catch {};
+    cfg.add_keybind(make_keybind_int(mod_key, 0x002c, .focus_monitor, -1)) catch {};
+    cfg.add_keybind(make_keybind_int(mod_key, 0x002e, .focus_monitor, 1)) catch {};
+    cfg.add_keybind(make_keybind_int(mod_key | shift_key, 0x002c, .send_to_monitor, -1)) catch {};
+    cfg.add_keybind(make_keybind_int(mod_key | shift_key, 0x002e, .send_to_monitor, 1)) catch {};
+
+    var tag_index: i32 = 0;
+    while (tag_index < 9) : (tag_index += 1) {
+        const keysym: u64 = @as(u64, '1') + @as(u64, @intCast(tag_index));
+        cfg.add_keybind(make_keybind_int(mod_key, keysym, .view_tag, tag_index)) catch {};
+        cfg.add_keybind(make_keybind_int(mod_key | shift_key, keysym, .move_to_tag, tag_index)) catch {};
+        cfg.add_keybind(make_keybind_int(mod_key | control_key, keysym, .toggle_view_tag, tag_index)) catch {};
+        cfg.add_keybind(make_keybind_int(mod_key | control_key | shift_key, keysym, .toggle_tag, tag_index)) catch {};
+    }
+
+    cfg.add_button(.{ .click = .client_win, .mod_mask = mod_key, .button = 1, .action = .move_mouse }) catch {};
+    cfg.add_button(.{ .click = .client_win, .mod_mask = mod_key, .button = 3, .action = .resize_mouse }) catch {};
+}
+
+fn make_keybind(mod: u32, key: u64, action: Action) Keybind {
+    var kb: Keybind = .{ .action = action };
+    kb.keys[0] = .{ .mod_mask = mod, .keysym = key };
+    kb.key_count = 1;
+    return kb;
+}
+
+fn make_keybind_int(mod: u32, key: u64, action: Action, int_arg: i32) Keybind {
+    var kb = make_keybind(mod, key, action);
+    kb.int_arg = int_arg;
+    return kb;
+}
+
+fn make_keybind_str(mod: u32, key: u64, action: Action, str_arg: []const u8) Keybind {
+    var kb = make_keybind(mod, key, action);
+    kb.str_arg = str_arg;
+    return kb;
+}
