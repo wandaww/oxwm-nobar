@@ -43,7 +43,6 @@ pub fn spawn_command(wm: *WindowManager, cmd: []const u8) void {
     }
 }
 
-// TODO: take in the terminal cmd directly.
 pub fn spawn_terminal(wm: *WindowManager) void {
     const pid = std.posix.fork() catch return;
     if (pid == 0) {

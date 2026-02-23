@@ -135,7 +135,7 @@ pub const WindowManager = struct {
 
     /// Release all allocated memory owned by the WM.
     pub fn deinit(self: *WindowManager) void {
-        bar_mod.destroy_bars(self.bars, self.allocator, self.display.handle);
+        bar_mod.destroy_bars(self.bars, self.display.handle);
         self.bars = null;
 
         if (self.overlay) |o| {
@@ -535,7 +535,7 @@ pub const WindowManager = struct {
 
         load_fn(self);
 
-        bar_mod.destroy_bars(self.bars, self.allocator, self.display.handle);
+        bar_mod.destroy_bars(self.bars, self.display.handle);
         self.bars = null;
         self.setup_bars();
         self.rebuild_bar_blocks();

@@ -132,8 +132,7 @@ pub const Bar = struct {
     }
 
     /// Destroys the bar's X resources and frees the allocation.
-    // TODO: Remove `allocator` param as its already stored in `Bar`.
-    pub fn destroy(self: *Bar, allocator: std.mem.Allocator, display: *xlib.Display) void {
+    pub fn destroy(self: *Bar, display: *xlib.Display) void {
         if (self.xft_draw) |xft_draw| xlib.XftDrawDestroy(xft_draw);
         if (self.font) |font| xlib.XftFontClose(display, font);
 
@@ -141,7 +140,7 @@ pub const Bar = struct {
         _ = xlib.XFreePixmap(display, self.pixmap);
         _ = xlib.c.XDestroyWindow(display, self.window);
         self.blocks.deinit(self.allocator);
-        allocator.destroy(self);
+        self.allocator.destroy(self);
     }
 
     pub fn add_block(self: *Bar, block: Block) void {
@@ -299,11 +298,11 @@ pub fn invalidate_bars(bars: ?*Bar) void {
 }
 
 /// Destroys all bars in the list and frees their resources.
-pub fn destroy_bars(bars: ?*Bar, allocator: std.mem.Allocator, display: *xlib.Display) void {
+pub fn destroy_bars(bars: ?*Bar, display: *xlib.Display) void {
     var current = bars;
     while (current) |bar| {
         const next = bar.next;
-        bar.destroy(allocator, display);
+        bar.destroy(display);
         current = next;
     }
 }
