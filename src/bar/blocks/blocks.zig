@@ -1,11 +1,11 @@
 const std = @import("std");
 
 pub const Static = @import("static.zig").Static;
-pub const Date_Time = @import("datetime.zig").DateTime;
+pub const DateTime = @import("datetime.zig").DateTime;
 pub const Ram = @import("ram.zig").Ram;
 pub const Shell = @import("shell.zig").Shell;
 pub const Battery = @import("battery.zig").Battery;
-pub const Cpu_Temp = @import("cpu_temp.zig").CpuTemp;
+pub const CpuTemp = @import("cpu_temp.zig").CpuTemp;
 
 pub const Block = struct {
     data: Data,
@@ -16,11 +16,11 @@ pub const Block = struct {
 
     pub const Data = union(enum) {
         static: Static,
-        datetime: Date_Time,
+        datetime: DateTime,
         ram: Ram,
         shell: Shell,
         battery: Battery,
-        cpu_temp: Cpu_Temp,
+        cpu_temp: CpuTemp,
     };
 
     pub fn initStatic(text: []const u8, col: c_ulong, ul: bool) Block {
@@ -38,7 +38,7 @@ pub const Block = struct {
 
     pub fn initDatetime(format: []const u8, datetime_format: []const u8, interval_secs: u64, col: c_ulong, ul: bool) Block {
         return .{
-            .data = .{ .datetime = Date_Time.init(format, datetime_format, interval_secs, col) },
+            .data = .{ .datetime = DateTime.init(format, datetime_format, interval_secs, col) },
             .last_update = 0,
             .cached_content = undefined,
             .cached_len = 0,
@@ -92,7 +92,7 @@ pub const Block = struct {
         ul: bool,
     ) Block {
         return .{
-            .data = .{ .cpu_temp = Cpu_Temp.init(format, thermal_zone, interval_secs, col) },
+            .data = .{ .cpu_temp = CpuTemp.init(format, thermal_zone, interval_secs, col) },
             .last_update = 0,
             .cached_content = undefined,
             .cached_len = 0,
