@@ -4,13 +4,13 @@ const c = @cImport({
     @cInclude("time.h");
 });
 
-pub const Date_Time = struct {
+pub const DateTime = struct {
     format: []const u8,
     datetime_format: []const u8,
     interval_secs: u64,
     color: c_ulong,
 
-    pub fn init(format: []const u8, datetime_format: []const u8, interval_secs: u64, color: c_ulong) Date_Time {
+    pub fn init(format: []const u8, datetime_format: []const u8, interval_secs: u64, color: c_ulong) DateTime {
         return .{
             .format = format,
             .datetime_format = datetime_format,
@@ -19,7 +19,7 @@ pub const Date_Time = struct {
         };
     }
 
-    pub fn content(self: *Date_Time, buffer: []u8) []const u8 {
+    pub fn content(self: *DateTime, buffer: []u8) []const u8 {
         var now: c.time_t = c.time(null);
         const tm_ptr = c.localtime(&now);
         if (tm_ptr == null) return buffer[0..0];
@@ -97,11 +97,11 @@ pub const Date_Time = struct {
         };
     }
 
-    pub fn interval(self: *Date_Time) u64 {
+    pub fn interval(self: *DateTime) u64 {
         return self.interval_secs;
     }
 
-    pub fn getColor(self: *Date_Time) c_ulong {
+    pub fn getColor(self: *DateTime) c_ulong {
         return self.color;
     }
 };

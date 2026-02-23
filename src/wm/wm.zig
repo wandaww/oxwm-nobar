@@ -78,10 +78,10 @@ pub const WindowManager = struct {
 
     chord: ChordState,
 
-    overlay: ?*overlay_mod.Keybind_Overlay,
+    overlay: ?*overlay_mod.KeybindOverlay,
 
-    scroll_animation: animations.Scroll_Animation,
-    animation_config: animations.Animation_Config,
+    scroll_animation: animations.ScrollAnimation,
+    animation_config: animations.AnimationConfig,
 
     running: bool,
     last_motion_monitor: ?*Monitor,
@@ -306,7 +306,7 @@ pub const WindowManager = struct {
     }
 
     fn setupOverlay(self: *WindowManager) void {
-        self.overlay = overlay_mod.Keybind_Overlay.init(
+        self.overlay = overlay_mod.KeybindOverlay.init(
             self.display.handle,
             self.display.screen,
             self.display.root,

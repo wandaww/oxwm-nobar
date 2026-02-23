@@ -36,13 +36,13 @@ pub const Action = enum {
     scroll_right,
 };
 
-pub const Key_Press = struct {
+pub const KeyPress = struct {
     mod_mask: u32 = 0,
     keysym: u64 = 0,
 };
 
 pub const Keybind = struct {
-    keys: [4]Key_Press = [_]Key_Press{.{}} ** 4,
+    keys: [4]KeyPress = [_]KeyPress{.{}} ** 4,
     key_count: u8 = 1,
     action: Action,
     int_arg: i32 = 0,
@@ -59,7 +59,7 @@ pub const Rule = struct {
     focus: bool,
 };
 
-pub const Block_Type = enum {
+pub const BlockType = enum {
     static,
     datetime,
     ram,
@@ -68,27 +68,27 @@ pub const Block_Type = enum {
     cpu_temp,
 };
 
-pub const Click_Target = enum {
+pub const ClickTarget = enum {
     client_win,
     root_win,
     tag_bar,
 };
 
-pub const Mouse_Action = enum {
+pub const MouseAction = enum {
     move_mouse,
     resize_mouse,
     toggle_floating,
 };
 
-pub const Mouse_Button = struct {
-    click: Click_Target,
+pub const MouseButton = struct {
+    click: ClickTarget,
     mod_mask: u32,
     button: u32,
-    action: Mouse_Action,
+    action: MouseAction,
 };
 
 pub const Block = struct {
-    block_type: Block_Type,
+    block_type: BlockType,
     format: []const u8,
     command: ?[]const u8 = null,
     interval: u32,
@@ -145,7 +145,7 @@ pub const Config = struct {
     keybinds: std.ArrayListUnmanaged(Keybind) = .{},
     rules: std.ArrayListUnmanaged(Rule) = .{},
     blocks: std.ArrayListUnmanaged(Block) = .{},
-    buttons: std.ArrayListUnmanaged(Mouse_Button) = .{},
+    buttons: std.ArrayListUnmanaged(MouseButton) = .{},
     autostart: std.ArrayListUnmanaged([]const u8) = .{},
 
     pub fn init(allocator: std.mem.Allocator) Config {
@@ -176,7 +176,7 @@ pub const Config = struct {
         try self.blocks.append(self.allocator, block);
     }
 
-    pub fn addButton(self: *Config, button: Mouse_Button) !void {
+    pub fn addButton(self: *Config, button: MouseButton) !void {
         try self.buttons.append(self.allocator, button);
     }
 

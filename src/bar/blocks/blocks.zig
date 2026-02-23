@@ -1,11 +1,11 @@
 const std = @import("std");
 
 pub const Static = @import("static.zig").Static;
-pub const Date_Time = @import("datetime.zig").Date_Time;
+pub const Date_Time = @import("datetime.zig").DateTime;
 pub const Ram = @import("ram.zig").Ram;
 pub const Shell = @import("shell.zig").Shell;
 pub const Battery = @import("battery.zig").Battery;
-pub const Cpu_Temp = @import("cpu_temp.zig").Cpu_Temp;
+pub const Cpu_Temp = @import("cpu_temp.zig").CpuTemp;
 
 pub const Block = struct {
     data: Data,

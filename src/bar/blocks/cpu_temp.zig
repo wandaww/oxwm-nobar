@@ -1,7 +1,7 @@
 const std = @import("std");
 const format_util = @import("format.zig");
 
-pub const Cpu_Temp = struct {
+pub const CpuTemp = struct {
     format: []const u8,
     device: []const u8,
     interval_secs: u64,
@@ -14,8 +14,8 @@ pub const Cpu_Temp = struct {
         device: []const u8,
         interval_secs: u64,
         color: c_ulong,
-    ) Cpu_Temp {
-        var self = Cpu_Temp{
+    ) CpuTemp {
+        var self = CpuTemp{
             .format = format,
             .device = device,
             .interval_secs = interval_secs,
@@ -27,7 +27,7 @@ pub const Cpu_Temp = struct {
         return self;
     }
 
-    fn detectPath(self: *Cpu_Temp) void {
+    fn detectPath(self: *CpuTemp) void {
         if (self.device.len > 0 and self.device[0] == '/') {
             if (self.device.len <= self.cached_path.len) {
                 @memcpy(self.cached_path[0..self.device.len], self.device);
@@ -46,7 +46,7 @@ pub const Cpu_Temp = struct {
         if (self.tryPath("/sys/class/thermal/{s}/temp", "thermal_zone0")) return;
     }
 
-    fn tryPath(self: *Cpu_Temp, comptime fmt: []const u8, device: []const u8) bool {
+    fn tryPath(self: *CpuTemp, comptime fmt: []const u8, device: []const u8) bool {
         const path = std.fmt.bufPrint(&self.cached_path, fmt, .{device}) catch return false;
         const file = std.fs.openFileAbsolute(path, .{}) catch return false;
         file.close();
@@ -54,7 +54,7 @@ pub const Cpu_Temp = struct {
         return true;
     }
 
-    fn findHwmonCpu(self: *Cpu_Temp) bool {
+    fn findHwmonCpu(self: *CpuTemp) bool {
         var dir = std.fs.openDirAbsolute("/sys/class/hwmon", .{ .iterate = true }) catch return false;
         defer dir.close();
 
@@ -83,7 +83,7 @@ pub const Cpu_Temp = struct {
         return false;
     }
 
-    pub fn content(self: *Cpu_Temp, buffer: []u8) []const u8 {
+    pub fn content(self: *CpuTemp, buffer: []u8) []const u8 {
         if (self.cached_path_len == 0) return buffer[0..0];
 
         const path = self.cached_path[0..self.cached_path_len];
@@ -103,11 +103,11 @@ pub const Cpu_Temp = struct {
         return format_util.substitute(self.format, deg_str, buffer);
     }
 
-    pub fn interval(self: *Cpu_Temp) u64 {
+    pub fn interval(self: *CpuTemp) u64 {
         return self.interval_secs;
     }
 
-    pub fn getColor(self: *Cpu_Temp) c_ulong {
+    pub fn getColor(self: *CpuTemp) c_ulong {
         return self.color;
     }
 };

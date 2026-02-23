@@ -17,12 +17,12 @@ pub const Easing = enum {
     }
 };
 
-pub const Animation_Config = struct {
+pub const AnimationConfig = struct {
     duration_ms: u64 = 150,
     easing: Easing = .ease_out,
 };
 
-pub const Scroll_Animation = struct {
+pub const ScrollAnimation = struct {
     start_value: i32 = 0,
     end_value: i32 = 0,
     start_time: i64 = 0,
@@ -30,7 +30,7 @@ pub const Scroll_Animation = struct {
     easing: Easing = .ease_out,
     active: bool = false,
 
-    pub fn start(self: *Scroll_Animation, from: i32, to: i32, config: Animation_Config) void {
+    pub fn start(self: *ScrollAnimation, from: i32, to: i32, config: AnimationConfig) void {
         if (from == to) {
             self.active = false;
             return;
@@ -43,7 +43,7 @@ pub const Scroll_Animation = struct {
         self.active = true;
     }
 
-    pub fn update(self: *Scroll_Animation) ?i32 {
+    pub fn update(self: *ScrollAnimation) ?i32 {
         if (!self.active) return null;
 
         const now = std.time.milliTimestamp();
@@ -62,15 +62,15 @@ pub const Scroll_Animation = struct {
         return @intFromFloat(current);
     }
 
-    pub fn isActive(self: *const Scroll_Animation) bool {
+    pub fn isActive(self: *const ScrollAnimation) bool {
         return self.active;
     }
 
-    pub fn target(self: *const Scroll_Animation) i32 {
+    pub fn target(self: *const ScrollAnimation) i32 {
         return self.end_value;
     }
 
-    pub fn stop(self: *Scroll_Animation) void {
+    pub fn stop(self: *ScrollAnimation) void {
         self.active = false;
     }
 };

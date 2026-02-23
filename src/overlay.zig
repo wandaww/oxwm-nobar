@@ -13,7 +13,7 @@ const key_bg_color: c_ulong = 0x2a2a2a;
 
 const max_lines: usize = 12;
 
-pub const Keybind_Overlay = struct {
+pub const KeybindOverlay = struct {
     window: xlib.Window = 0,
     pixmap: xlib.Pixmap = 0,
     gc: xlib.GC = null,
@@ -32,8 +32,8 @@ pub const Keybind_Overlay = struct {
     descs: [max_lines][]const u8 = undefined,
     line_count: usize = 0,
 
-    pub fn init(display: *xlib.Display, screen: c_int, root: xlib.Window, font_name: []const u8, allocator: std.mem.Allocator) ?*Keybind_Overlay {
-        const overlay = allocator.create(Keybind_Overlay) catch return null;
+    pub fn init(display: *xlib.Display, screen: c_int, root: xlib.Window, font_name: []const u8, allocator: std.mem.Allocator) ?*KeybindOverlay {
+        const overlay = allocator.create(KeybindOverlay) catch return null;
 
         const font_name_z = allocator.dupeZ(u8, font_name) catch {
             allocator.destroy(overlay);
@@ -60,7 +60,7 @@ pub const Keybind_Overlay = struct {
         return overlay;
     }
 
-    pub fn deinit(self: *Keybind_Overlay, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *KeybindOverlay, allocator: std.mem.Allocator) void {
         if (self.display) |display| {
             self.destroyWindow(display);
             if (self.font) |font| {
@@ -70,7 +70,7 @@ pub const Keybind_Overlay = struct {
         allocator.destroy(self);
     }
 
-    fn destroyWindow(self: *Keybind_Overlay, display: *xlib.Display) void {
+    fn destroyWindow(self: *KeybindOverlay, display: *xlib.Display) void {
         if (self.xft_draw) |xft_draw| {
             xlib.XftDrawDestroy(xft_draw);
             self.xft_draw = null;
@@ -89,7 +89,7 @@ pub const Keybind_Overlay = struct {
         }
     }
 
-    pub fn toggle(self: *Keybind_Overlay, mon_x: i32, mon_y: i32, mon_w: i32, mon_h: i32, config: *config_mod.Config) void {
+    pub fn toggle(self: *KeybindOverlay, mon_x: i32, mon_y: i32, mon_w: i32, mon_h: i32, config: *config_mod.Config) void {
         if (self.visible) {
             self.hide();
         } else {
@@ -97,7 +97,7 @@ pub const Keybind_Overlay = struct {
         }
     }
 
-    pub fn show(self: *Keybind_Overlay, mon_x: i32, mon_y: i32, mon_w: i32, mon_h: i32, config: *config_mod.Config) void {
+    pub fn show(self: *KeybindOverlay, mon_x: i32, mon_y: i32, mon_w: i32, mon_h: i32, config: *config_mod.Config) void {
         const display = self.display orelse return;
 
         self.collectKeybinds(config);
@@ -167,7 +167,7 @@ pub const Keybind_Overlay = struct {
         self.visible = true;
     }
 
-    pub fn hide(self: *Keybind_Overlay) void {
+    pub fn hide(self: *KeybindOverlay) void {
         if (!self.visible) return;
         if (self.display) |display| {
             _ = xlib.XUngrabKeyboard(display, xlib.CurrentTime);
@@ -178,7 +178,7 @@ pub const Keybind_Overlay = struct {
         self.visible = false;
     }
 
-    pub fn handleKey(self: *Keybind_Overlay, keysym: u64) bool {
+    pub fn handleKey(self: *KeybindOverlay, keysym: u64) bool {
         if (!self.visible) return false;
         if (keysym == 0xff1b or keysym == 'q' or keysym == 'Q') {
             self.hide();
@@ -187,11 +187,11 @@ pub const Keybind_Overlay = struct {
         return false;
     }
 
-    pub fn isOverlayWindow(self: *Keybind_Overlay, win: xlib.Window) bool {
+    pub fn isOverlayWindow(self: *KeybindOverlay, win: xlib.Window) bool {
         return self.visible and self.window != 0 and self.window == win;
     }
 
-    fn draw(self: *Keybind_Overlay, display: *xlib.Display, max_key_width: i32, title: []const u8) void {
+    fn draw(self: *KeybindOverlay, display: *xlib.Display, max_key_width: i32, title: []const u8) void {
         self.fillRect(display, 0, 0, self.width, self.height, bg_color);
 
         const title_x = @divTrunc(self.width - self.textWidth(display, title), 2);
@@ -217,12 +217,12 @@ pub const Keybind_Overlay = struct {
         _ = xlib.c.XFlush(display);
     }
 
-    fn fillRect(self: *Keybind_Overlay, display: *xlib.Display, x: i32, y: i32, w: i32, h: i32, color: c_ulong) void {
+    fn fillRect(self: *KeybindOverlay, display: *xlib.Display, x: i32, y: i32, w: i32, h: i32, color: c_ulong) void {
         _ = xlib.XSetForeground(display, self.gc, color);
         _ = xlib.XFillRectangle(display, self.pixmap, self.gc, x, y, @intCast(w), @intCast(h));
     }
 
-    fn drawText(self: *Keybind_Overlay, display: *xlib.Display, x: i32, y: i32, text: []const u8, color: c_ulong) void {
+    fn drawText(self: *KeybindOverlay, display: *xlib.Display, x: i32, y: i32, text: []const u8, color: c_ulong) void {
         if (self.xft_draw == null or self.font == null) return;
         if (text.len == 0) return;
 
@@ -241,14 +241,14 @@ pub const Keybind_Overlay = struct {
         xlib.XftColorFree(display, visual, colormap, &xft_color);
     }
 
-    fn textWidth(self: *Keybind_Overlay, display: *xlib.Display, text: []const u8) i32 {
+    fn textWidth(self: *KeybindOverlay, display: *xlib.Display, text: []const u8) i32 {
         if (self.font == null or text.len == 0) return 0;
         var extents: xlib.XGlyphInfo = undefined;
         xlib.XftTextExtentsUtf8(display, self.font, text.ptr, @intCast(text.len), &extents);
         return extents.xOff;
     }
 
-    fn collectKeybinds(self: *Keybind_Overlay, cfg: *config_mod.Config) void {
+    fn collectKeybinds(self: *KeybindOverlay, cfg: *config_mod.Config) void {
         const priority_actions = [_]config_mod.Action{
             .show_keybinds,
             .quit,
@@ -280,7 +280,7 @@ pub const Keybind_Overlay = struct {
         }
     }
 
-    fn formatKeyToBuf(self: *Keybind_Overlay, idx: usize, key: *const config_mod.Key_Press) void {
+    fn formatKeyToBuf(self: *KeybindOverlay, idx: usize, key: *const config_mod.KeyPress) void {
         var len: usize = 0;
         var buf = &self.key_bufs[idx];
 
