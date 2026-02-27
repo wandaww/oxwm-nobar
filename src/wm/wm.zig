@@ -246,6 +246,8 @@ pub const WindowManager = struct {
         const any_gap_nonzero = cfg.gap_inner_h != 0 or cfg.gap_inner_v != 0 or
             cfg.gap_outer_h != 0 or cfg.gap_outer_v != 0;
 
+        mon.smartgaps_enabled = cfg.smartgaps_enabled;
+
         if (cfg.gaps_enabled and any_gap_nonzero) {
             mon.gap_inner_h = cfg.gap_inner_h;
             mon.gap_inner_v = cfg.gap_inner_v;

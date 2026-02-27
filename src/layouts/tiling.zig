@@ -88,8 +88,14 @@ fn getGaps(monitor: *Monitor, gap_outer_h: *i32, gap_outer_v: *i32, gap_inner_h:
         count += 1;
     }
 
-    gap_outer_h.* = monitor.gap_outer_h;
-    gap_outer_v.* = monitor.gap_outer_v;
+    if (monitor.smartgaps_enabled and count == 1) {
+        gap_outer_h.* = 0;
+        gap_outer_v.* = 0;
+    } else {
+        gap_outer_h.* = monitor.gap_outer_h;
+        gap_outer_v.* = monitor.gap_outer_v;
+    }
+
     gap_inner_h.* = monitor.gap_inner_h;
     gap_inner_v.* = monitor.gap_inner_v;
     client_count.* = count;

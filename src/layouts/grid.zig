@@ -20,8 +20,8 @@ pub fn grid(monitor: *Monitor) void {
 
     if (client_count == 0) return;
 
-    const gap_outer_h = monitor.gap_outer_h;
-    const gap_outer_v = monitor.gap_outer_v;
+    const gap_outer_h = if (monitor.smartgaps_enabled and client_count == 1) 0 else monitor.gap_outer_h;
+    const gap_outer_v = if (monitor.smartgaps_enabled and client_count == 1) 0 else monitor.gap_outer_v;
     const gap_inner_h = monitor.gap_inner_h;
     const gap_inner_v = monitor.gap_inner_v;
 

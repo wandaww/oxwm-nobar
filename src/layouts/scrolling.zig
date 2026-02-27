@@ -21,8 +21,8 @@ pub fn scroll(monitor: *Monitor) void {
 
     if (client_count == 0) return;
 
-    const gap_outer_h = monitor.gap_outer_h;
-    const gap_outer_v = monitor.gap_outer_v;
+    const gap_outer_h = if (monitor.smartgaps_enabled and client_count == 1) 0 else monitor.gap_outer_h;
+    const gap_outer_v = if (monitor.smartgaps_enabled and client_count == 1) 0 else monitor.gap_outer_v;
     const gap_inner_v = monitor.gap_inner_v;
 
     const visible_count: u32 = @intCast(@max(1, monitor.nmaster));
@@ -68,7 +68,13 @@ pub fn scroll(monitor: *Monitor) void {
 }
 
 pub fn getScrollStep(monitor: *Monitor) i32 {
-    const gap_outer_v = monitor.gap_outer_v;
+    var client_count: u32 = 0;
+    var current = client_mod.nextTiled(monitor.clients);
+    while (current) |_| : (current = client_mod.nextTiled(current.?.next)) {
+        client_count += 1;
+    }
+
+    const gap_outer_v = if (monitor.smartgaps_enabled and client_count == 1) 0 else monitor.gap_outer_v;
     const gap_inner_v = monitor.gap_inner_v;
     const visible_count: u32 = @intCast(@max(1, monitor.nmaster));
     const available_width = monitor.win_w - 2 * gap_outer_v;
