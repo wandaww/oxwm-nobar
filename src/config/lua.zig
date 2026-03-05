@@ -300,6 +300,9 @@ fn registerMiscFunctions(state: *c.lua_State) void {
     c.lua_pushcfunction(state, luaSetTerminal);
     c.lua_setfield(state, -2, "set_terminal");
 
+    c.lua_pushcfunction(state, luaSetLayout);
+    c.lua_setfield(state, -2, "set_layout");
+
     c.lua_pushcfunction(state, luaSetModkey);
     c.lua_setfield(state, -2, "set_modkey");
 
@@ -993,6 +996,15 @@ fn luaSetTerminal(state: ?*c.lua_State) callconv(.c) c_int {
     const s = state orelse return 0;
     if (dupeLuaString(s, 1)) |term| {
         cfg.terminal = term;
+    }
+    return 0;
+}
+
+fn luaSetLayout(state: ?*c.lua_State) callconv(.c) c_int {
+    const cfg = config orelse return 0;
+    const s = state orelse return 0;
+    if (dupeLuaString(s, 1)) |layout| {
+        cfg.layout = layout;
     }
     return 0;
 }

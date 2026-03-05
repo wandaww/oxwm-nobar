@@ -180,11 +180,16 @@ pub const WindowManager = struct {
                     mon.win_y = screen.y_org;
                     mon.win_w = screen.width;
                     mon.win_h = screen.height;
-                    mon.lt[0] = &tiling.layout;
-                    mon.lt[1] = &monocle.layout;
-                    mon.lt[2] = &floating.layout;
-                    mon.lt[3] = &scrolling.layout;
-                    mon.lt[4] = &grid.layout;
+
+                    mon.lt[@intFromEnum(config_mod.Layouts.tiling)] = &tiling.layout;
+                    mon.lt[@intFromEnum(config_mod.Layouts.monocle)] = &monocle.layout;
+                    mon.lt[@intFromEnum(config_mod.Layouts.floating)] = &floating.layout;
+                    mon.lt[@intFromEnum(config_mod.Layouts.scrolling)] = &scrolling.layout;
+                    mon.lt[@intFromEnum(config_mod.Layouts.grid)] = &grid.layout;
+
+                    if (std.meta.stringToEnum(config_mod.Layouts, self.config.layout)) |value| {
+                        mon.sel_lt = @intFromEnum(value);
+                    }
 
                     for (0..10) |i| {
                         mon.pertag.ltidxs[i][0] = mon.lt[0];
@@ -221,11 +226,16 @@ pub const WindowManager = struct {
             mon.win_y = 0;
             mon.win_w = mon.mon_w;
             mon.win_h = mon.mon_h;
-            mon.lt[0] = &tiling.layout;
-            mon.lt[1] = &monocle.layout;
-            mon.lt[2] = &floating.layout;
-            mon.lt[3] = &scrolling.layout;
-            mon.lt[4] = &grid.layout;
+
+            mon.lt[@intFromEnum(config_mod.Layouts.tiling)] = &tiling.layout;
+            mon.lt[@intFromEnum(config_mod.Layouts.monocle)] = &monocle.layout;
+            mon.lt[@intFromEnum(config_mod.Layouts.floating)] = &floating.layout;
+            mon.lt[@intFromEnum(config_mod.Layouts.scrolling)] = &scrolling.layout;
+            mon.lt[@intFromEnum(config_mod.Layouts.grid)] = &grid.layout;
+
+            if (std.meta.stringToEnum(config_mod.Layouts, self.config.layout)) |value| {
+                mon.sel_lt = @intFromEnum(value);
+            }
 
             for (0..10) |i| {
                 mon.pertag.ltidxs[i][0] = mon.lt[0];

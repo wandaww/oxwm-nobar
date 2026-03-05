@@ -102,6 +102,9 @@ oxwm.set_terminal(terminal)
 oxwm.set_modkey(modkey) -- This is for Mod + mouse binds, such as drag/resize
 oxwm.set_tags(tags)
 
+-- Set default layout (tiling by default)
+-- oxwm.set_layout("tiling")
+
 -------------------------------------------------------------------------------
 -- Layouts
 -------------------------------------------------------------------------------

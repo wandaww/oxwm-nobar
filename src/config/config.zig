@@ -80,6 +80,14 @@ pub const MouseAction = enum {
     toggle_floating,
 };
 
+pub const Layouts = enum(u32) {
+    tiling,
+    monocle,
+    floating,
+    scrolling,
+    grid,
+};
+
 pub const MouseButton = struct {
     click: ClickTarget,
     mod_mask: u32,
@@ -115,6 +123,7 @@ pub const Config = struct {
     terminal: []const u8 = "st",
     font: []const u8 = "monospace:size=10",
     tags: [9][]const u8 = .{ "1", "2", "3", "4", "5", "6", "7", "8", "9" },
+    layout: []const u8 = "tiling",
 
     border_width: i32 = 2,
     border_focused: u32 = 0x6dade3,
