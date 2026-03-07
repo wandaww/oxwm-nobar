@@ -146,6 +146,7 @@ pub const Config = struct {
     layout_monocle_symbol: []const u8 = "[M]",
     layout_floating_symbol: []const u8 = "><>",
     layout_scrolling_symbol: []const u8 = "[S]",
+    layout_grid_symbol: []const u8 = "[#]",
 
     scheme_normal: ColorScheme = .{ .foreground = 0xbbbbbb, .background = 0x1a1b26, .border = 0x444444 },
     scheme_selected: ColorScheme = .{ .foreground = 0x0db9d7, .background = 0x1a1b26, .border = 0xad8ee6 },

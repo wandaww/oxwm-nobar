@@ -9,13 +9,13 @@ const Monitor = monitor_mod.Monitor;
 const Block = blocks_mod.Block;
 
 fn getLayoutSymbol(layout_index: u32, config: config_mod.Config) []const u8 {
-    return switch (layout_index) {
-        0 => config.layout_tile_symbol,
-        1 => config.layout_monocle_symbol,
-        2 => config.layout_floating_symbol,
-        3 => config.layout_scrolling_symbol,
-        4 => "[#]",
-        else => "[?]",
+    const layout = std.meta.intToEnum(config_mod.Layouts, layout_index) catch return "[?]";
+    return switch (layout) {
+        .tiling => config.layout_tile_symbol,
+        .monocle => config.layout_monocle_symbol,
+        .floating => config.layout_floating_symbol,
+        .scrolling => config.layout_scrolling_symbol,
+        .grid => config.layout_grid_symbol,
     };
 }
 

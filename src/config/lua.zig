@@ -1092,6 +1092,7 @@ fn luaSetLayoutSymbol(state: ?*c.lua_State) callconv(.c) c_int {
         .{ "monocle", &cfg.layout_monocle_symbol },
         .{ "scrolling", &cfg.layout_scrolling_symbol },
         .{ "scroll", &cfg.layout_scrolling_symbol },
+        .{ "grid", &cfg.layout_grid_symbol },
     };
 
     inline for (layout_map) |entry| {
