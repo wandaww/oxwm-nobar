@@ -330,6 +330,9 @@ fn registerMiscFunctions(state: *c.lua_State) void {
     c.lua_pushcfunction(state, luaToggleGaps);
     c.lua_setfield(state, -2, "toggle_gaps");
 
+    c.lua_pushcfunction(state, luaToggleBar);
+    c.lua_setfield(state, -2, "toggle_bar");
+
     c.lua_pushcfunction(state, luaShowKeybinds);
     c.lua_setfield(state, -2, "show_keybinds");
 
@@ -1131,6 +1134,12 @@ fn luaToggleGaps(state: ?*c.lua_State) callconv(.c) c_int {
     return 1;
 }
 
+fn luaToggleBar(state: ?*c.lua_State) callconv(.c) c_int {
+    const s = state orelse return 0;
+    createActionTable(s, "ToggleBar");
+    return 1;
+}
+
 fn luaShowKeybinds(state: ?*c.lua_State) callconv(.c) c_int {
     const s = state orelse return 0;
     createActionTable(s, "ShowKeybinds");
@@ -1281,6 +1290,7 @@ fn parseAction(name: []const u8) ?Action {
         .{ "ToggleFloating", Action.toggle_floating },
         .{ "ToggleFullScreen", Action.toggle_fullscreen },
         .{ "ToggleGaps", Action.toggle_gaps },
+        .{ "ToggleBar", Action.toggle_bar },
         .{ "CycleLayout", Action.cycle_layout },
         .{ "ChangeLayout", Action.set_layout },
         .{ "ViewTag", Action.view_tag },

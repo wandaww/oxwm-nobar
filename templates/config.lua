@@ -230,6 +230,8 @@ oxwm.key.bind({ modkey }, "P", oxwm.inc_num_master(-1))
 
 -- Gaps toggle
 oxwm.key.bind({ modkey }, "A", oxwm.toggle_gaps())
+-- Bar toggle
+oxwm.key.bind({ modkey }, "B", oxwm.toggle_bar())
 
 -- Window manager controls
 oxwm.key.bind({ modkey, "Shift" }, "Q", oxwm.quit())

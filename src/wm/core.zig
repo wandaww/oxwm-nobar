@@ -729,6 +729,12 @@ pub fn view(tag_mask: u32, wm: *WindowManager) void {
     monitor.mfact = monitor.pertag.mfacts[monitor.pertag.curtag];
     monitor.sel_lt = monitor.pertag.sellts[monitor.pertag.curtag];
 
+    const new_show_bar = monitor.pertag.showbars[monitor.pertag.curtag];
+    if (new_show_bar != monitor.show_bar) {
+        monitor.show_bar = new_show_bar;
+        window_manager.actions.updateBarVisibility(monitor, wm);
+    }
+
     focusTopClient(monitor, wm);
     arrange(monitor, wm);
     wm.invalidateBars();

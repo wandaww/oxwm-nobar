@@ -6,6 +6,7 @@ const lua = @import("../config/lua.zig");
 const core = @import("core.zig");
 const tiling = @import("../layouts/tiling.zig");
 const monitor_mod = @import("../monitor.zig");
+const bar_mod = @import("../bar/bar.zig");
 const wm_mod = @import("wm.zig");
 const xlib = @import("../x11/xlib.zig");
 
@@ -148,6 +149,12 @@ pub fn toggleView(tag_mask: u32, wm: *WindowManager) void {
         monitor.mfact = monitor.pertag.mfacts[monitor.pertag.curtag];
         monitor.sel_lt = monitor.pertag.sellts[monitor.pertag.curtag];
 
+        const new_show_bar = monitor.pertag.showbars[monitor.pertag.curtag];
+        if (new_show_bar != monitor.show_bar) {
+            monitor.show_bar = new_show_bar;
+            updateBarVisibility(monitor, wm);
+        }
+
         core.focusTopClient(monitor, wm);
         core.arrange(monitor, wm);
         wm.invalidateBars();
@@ -180,6 +187,35 @@ pub fn toggleGaps(wm: *WindowManager) void {
         monitor.gap_outer_v = 0;
     }
     core.arrange(monitor, wm);
+}
+
+pub fn updateBarVisibility(monitor: *Monitor, wm: *WindowManager) void {
+    const bar = bar_mod.windowToBar(wm.bars, monitor.bar_win) orelse return;
+
+    if (monitor.show_bar) {
+        _ = xlib.XMapWindow(wm.display.handle, bar.window);
+        monitor.win_h -= bar.height;
+        if (std.mem.eql(u8, wm.config.bar_position, "top")) {
+            monitor.mon_y += bar.height;
+        }
+    } else {
+        _ = xlib.c.XUnmapWindow(wm.display.handle, bar.window);
+        monitor.win_h += bar.height;
+        if (std.mem.eql(u8, wm.config.bar_position, "top")) {
+            monitor.mon_y -= bar.height;
+        }
+    }
+}
+
+pub fn toggleBar(wm: *WindowManager) void {
+    const monitor = wm.selected_monitor orelse return;
+    monitor.show_bar = !monitor.show_bar;
+    monitor.pertag.showbars[monitor.pertag.curtag] = monitor.show_bar;
+
+    updateBarVisibility(monitor, wm);
+
+    core.arrange(monitor, wm);
+    wm.invalidateBars();
 }
 
 pub fn killFocused(wm: *WindowManager) void {
@@ -680,6 +716,7 @@ pub fn executeAction(action: config_mod.Action, int_arg: i32, str_arg: ?[]const 
         .toggle_floating => toggleFloating(wm),
         .toggle_fullscreen => toggleFullscreen(wm),
         .toggle_gaps => toggleGaps(wm),
+        .toggle_bar => toggleBar(wm),
         .cycle_layout => cycleLayout(wm),
         .set_layout => setLayout(str_arg, wm),
         .set_layout_tiling => setLayoutIndex(0, wm),
