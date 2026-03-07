@@ -105,6 +105,46 @@ pub const MouseButton = struct {
     action: MouseAction,
 };
 
+pub const FloatingPosition = enum {
+    top_left,
+    top_center,
+    top_right,
+    center_left,
+    center,
+    center_right,
+    bottom_left,
+    bottom_center,
+    bottom_right,
+
+    pub fn fromString(name: []const u8) ?FloatingPosition {
+        const map = .{
+            .{ "top-left", .top_left },
+            .{ "top_left", .top_left },
+            .{ "top-center", .top_center },
+            .{ "top_center", .top_center },
+            .{ "top-middle", .top_center },
+            .{ "top-right", .top_right },
+            .{ "top_right", .top_right },
+            .{ "center-left", .center_left },
+            .{ "center_left", .center_left },
+            .{ "center", .center },
+            .{ "center-right", .center_right },
+            .{ "center_right", .center_right },
+            .{ "bottom-left", .bottom_left },
+            .{ "bottom_left", .bottom_left },
+            .{ "bottom-center", .bottom_center },
+            .{ "bottom_center", .bottom_center },
+            .{ "bottom-middle", .bottom_center },
+            .{ "bottom-right", .bottom_right },
+            .{ "bottom_right", .bottom_right },
+        };
+        inline for (map) |entry| {
+            if (std.mem.eql(u8, name, entry[0])) return entry[1];
+        }
+        return null;
+    }
+};
+
 pub const ClickAction = struct {
     command: []const u8,
     floating: bool = false,
@@ -158,6 +198,7 @@ pub const Config = struct {
     auto_tile: bool = false,
     tag_back_and_forth: bool = false,
     hide_vacant_tags: bool = false,
+    floating_position: FloatingPosition = .center,
 
     layout_tile_symbol: []const u8 = "[]=",
     layout_monocle_symbol: []const u8 = "[M]",

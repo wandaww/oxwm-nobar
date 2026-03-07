@@ -344,6 +344,9 @@ fn registerMiscFunctions(state: *c.lua_State) void {
 
     c.lua_pushcfunction(state, luaSetTagLayout);
     c.lua_setfield(state, -2, "set_tag_layout");
+
+    c.lua_pushcfunction(state, luaSetFloatingPosition);
+    c.lua_setfield(state, -2, "set_floating_position");
 }
 
 fn createActionTable(state: *c.lua_State, action_name: [*:0]const u8) void {
@@ -1018,6 +1021,17 @@ fn createBlockTable(state: *c.lua_State, block_type: [*:0]const u8, arg: ?[]cons
             c.lua_setfield(state, -2, "__arg");
         }
     }
+}
+
+fn luaSetFloatingPosition(state: ?*c.lua_State) callconv(.c) c_int {
+    const cfg = config orelse return 0;
+    const s = state orelse return 0;
+    if (getLuaString(s, 1)) |name| {
+        if (config_mod.FloatingPosition.fromString(name)) |pos| {
+            cfg.floating_position = pos;
+        }
+    }
+    return 0;
 }
 
 fn luaSetTerminal(state: ?*c.lua_State) callconv(.c) c_int {

@@ -133,6 +133,10 @@ oxwm.border.set_focused_color(colors.blue)
 -- Color of unfocused window borders
 oxwm.border.set_unfocused_color(colors.grey)
 
+-- Where floating windows spawn: "top-left", "top-center", "top-right",
+-- "center-left", "center", "center-right", "bottom-left", "bottom-center", "bottom-right"
+oxwm.set_floating_position("center")
+
 -- Smart Enabled = No border if 1 window
 oxwm.gaps.set_smart(enabled)
 -- Inner gaps (horizontal, vertical) in pixels

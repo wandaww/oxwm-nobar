@@ -6,6 +6,8 @@ const tiling = @import("../layouts/tiling.zig");
 const scrolling = @import("../layouts/scrolling.zig");
 const window_manager = @import("wm.zig");
 
+const config_mod = @import("../config/config.zig");
+
 const Client = client_mod.Client;
 const Monitor = monitor_mod.Monitor;
 const WindowManager = window_manager.WindowManager;
@@ -77,6 +79,7 @@ pub fn manage(win: xlib.Window, window_attrs: *xlib.XWindowAttributes, wm: *Wind
         client.old_state = client.is_floating;
     }
     if (client.is_floating) {
+        positionFloating(client, monitor, wm.config.floating_position);
         _ = xlib.XRaiseWindow(wm.display.handle, client.window);
     }
 
@@ -435,6 +438,22 @@ pub fn scrollToWindow(client: *Client, animate: bool, wm: *WindowManager) void {
         monitor.scroll_offset = target;
         arrange(monitor, wm);
     }
+}
+
+fn positionFloating(client: *Client, monitor: *Monitor, pos: config_mod.FloatingPosition) void {
+    const bw = 2 * client.border_width;
+    const x: i32 = switch (pos) {
+        .top_left, .center_left, .bottom_left => monitor.win_x,
+        .top_center, .center, .bottom_center => monitor.win_x + @divTrunc(monitor.win_w - client.width - bw, 2),
+        .top_right, .center_right, .bottom_right => monitor.win_x + monitor.win_w - client.width - bw,
+    };
+    const y: i32 = switch (pos) {
+        .top_left, .top_center, .top_right => monitor.win_y,
+        .center_left, .center, .center_right => monitor.win_y + @divTrunc(monitor.win_h - client.height - bw, 2),
+        .bottom_left, .bottom_center, .bottom_right => monitor.win_y + monitor.win_h - client.height - bw,
+    };
+    client.x = x;
+    client.y = y;
 }
 
 pub fn applyRules(client: *Client, wm: *WindowManager) void {
