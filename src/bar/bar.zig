@@ -73,11 +73,23 @@ pub const Bar = struct {
         const font_height = font.*.ascent + font.*.descent;
         const bar_height: i32 = @intCast(@as(i32, font_height) + 8);
 
+        var bar_y: i32 = 0;
+
+        if (std.mem.eql(u8, config.bar_position, "top")) {
+            bar_y = monitor.mon_y;
+            monitor.mon_y = monitor.mon_y + bar_height;
+        } else if (std.mem.eql(u8, config.bar_position, "bottom")) {
+            bar_y = monitor.mon_h - bar_height;
+            monitor.mon_y = 0;
+        } else {
+            return null;
+        }
+
         const window = xlib.c.XCreateSimpleWindow(
             display,
             root,
             monitor.mon_x,
-            monitor.mon_y,
+            bar_y,
             @intCast(monitor.mon_w),
             @intCast(bar_height),
             0,
@@ -125,7 +137,6 @@ pub const Bar = struct {
         };
 
         monitor.bar_win = window;
-        monitor.win_y = monitor.mon_y + bar_height;
         monitor.win_h = monitor.mon_h - bar_height;
 
         return bar;

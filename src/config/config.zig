@@ -122,6 +122,7 @@ pub const Config = struct {
 
     terminal: []const u8 = "st",
     font: []const u8 = "monospace:size=10",
+    bar_position: []const u8 = "top",
     tags: [9][]const u8 = .{ "1", "2", "3", "4", "5", "6", "7", "8", "9" },
     layout: []const u8 = "tiling",
 

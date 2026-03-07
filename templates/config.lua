@@ -161,6 +161,9 @@ oxwm.rule.add({ instance = "gimp", floating = true })
 -- Font configuration
 oxwm.bar.set_font(bar_font)
 
+-- Position configuration (top/bottom, top is default)
+-- oxwm.bar.set_position("bottom")
+
 -- Set your blocks here (defined above)
 oxwm.bar.set_blocks(blocks)
 

@@ -274,6 +274,9 @@ fn registerBarModule(state: *c.lua_State) void {
     c.lua_pushcfunction(state, luaBarSetHideVacantTags);
     c.lua_setfield(state, -2, "set_hide_vacant_tags");
 
+    c.lua_pushcfunction(state, luaBarSetPosition);
+    c.lua_setfield(state, -2, "set_position");
+
     c.lua_createtable(state, 0, 6);
 
     c.lua_pushcfunction(state, luaBarBlockRam);
@@ -751,6 +754,15 @@ fn luaBarSetFont(state: ?*c.lua_State) callconv(.c) c_int {
     const s = state orelse return 0;
     if (dupeLuaString(s, 1)) |font| {
         cfg.font = font;
+    }
+    return 0;
+}
+
+fn luaBarSetPosition(state: ?*c.lua_State) callconv(.c) c_int {
+    const cfg = config orelse return 0;
+    const s = state orelse return 0;
+    if (dupeLuaString(s, 1)) |position| {
+        cfg.bar_position = position;
     }
     return 0;
 }
