@@ -823,12 +823,17 @@ fn parseBlockConfig(state: *c.lua_State, idx: c_int) ?Block {
     const underline = c.lua_toboolean(state, -1) != 0;
     c.lua_settop(state, -2);
 
+    _ = c.lua_getfield(state, idx, "click");
+    const click = parseClickAction(state, -1);
+    c.lua_settop(state, -2);
+
     var block = Block{
         .block_type = .static,
         .format = format,
         .interval = interval,
         .color = color,
         .underline = underline,
+        .click = click,
     };
 
     if (std.mem.eql(u8, block_type_str, "Ram")) {
@@ -949,7 +954,7 @@ fn luaBarBlockStatic(state: ?*c.lua_State) callconv(.c) c_int {
 fn luaBarBlockBattery(state: ?*c.lua_State) callconv(.c) c_int {
     const s = state orelse return 0;
 
-    c.lua_createtable(s, 0, 6);
+    c.lua_createtable(s, 0, 7);
 
     _ = c.lua_pushstring(s, "Battery");
     c.lua_setfield(s, -2, "__block_type");
@@ -966,6 +971,9 @@ fn luaBarBlockBattery(state: ?*c.lua_State) callconv(.c) c_int {
     _ = c.lua_getfield(s, 1, "underline");
     c.lua_setfield(s, -2, "underline");
 
+    _ = c.lua_getfield(s, 1, "click");
+    c.lua_setfield(s, -2, "click");
+
     c.lua_createtable(s, 0, 4);
     _ = c.lua_getfield(s, 1, "charging");
     c.lua_setfield(s, -2, "charging");
@@ -981,7 +989,7 @@ fn luaBarBlockBattery(state: ?*c.lua_State) callconv(.c) c_int {
 }
 
 fn createBlockTable(state: *c.lua_State, block_type: [*:0]const u8, arg: ?[]const u8) void {
-    c.lua_createtable(state, 0, 6);
+    c.lua_createtable(state, 0, 7);
 
     _ = c.lua_pushstring(state, block_type);
     c.lua_setfield(state, -2, "__block_type");
@@ -997,6 +1005,9 @@ fn createBlockTable(state: *c.lua_State, block_type: [*:0]const u8, arg: ?[]cons
 
     _ = c.lua_getfield(state, 1, "underline");
     c.lua_setfield(state, -2, "underline");
+
+    _ = c.lua_getfield(state, 1, "click");
+    c.lua_setfield(state, -2, "click");
 
     if (arg) |a| {
         var buf: [256]u8 = undefined;
@@ -1210,6 +1221,26 @@ fn dupeLuaString(state: *c.lua_State, idx: c_int) ?[]const u8 {
     const arena_allocator = cfg.string_arena.allocator();
     const duped = arena_allocator.dupe(u8, lua_str) catch return null;
     return duped;
+}
+
+fn parseClickAction(state: *c.lua_State, idx: c_int) ?config_mod.ClickAction {
+    const lua_type = c.lua_type(state, idx);
+    if (lua_type == c.LUA_TSTRING) {
+        const cmd = dupeLuaString(state, idx) orelse return null;
+        return .{ .command = cmd };
+    } else if (lua_type == c.LUA_TTABLE) {
+        _ = c.lua_getfield(state, idx, "command");
+        const cmd = dupeLuaString(state, -1);
+        c.lua_settop(state, -2);
+        if (cmd == null) return null;
+
+        _ = c.lua_getfield(state, idx, "floating");
+        const floating = c.lua_toboolean(state, -1) != 0;
+        c.lua_settop(state, -2);
+
+        return .{ .command = cmd.?, .floating = floating };
+    }
+    return null;
 }
 
 fn parseColor(state: *c.lua_State, idx: c_int) u32 {

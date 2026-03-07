@@ -84,6 +84,7 @@ pub const WindowManager = struct {
     animation_config: animations.AnimationConfig,
 
     running: bool,
+    next_spawn_floating: bool = false,
     last_motion_monitor: ?*Monitor,
 
     /// Initialises the window manager
@@ -553,7 +554,7 @@ pub const WindowManager = struct {
 
 /// Converts a config block description into a live status bar block.
 pub fn configBlockToBarBlock(cfg: config_mod.Block) blocks_mod.Block {
-    return switch (cfg.block_type) {
+    var block = switch (cfg.block_type) {
         .static => blocks_mod.Block.initStatic(cfg.format, cfg.color, cfg.underline),
         .datetime => blocks_mod.Block.initDatetime(
             cfg.format,
@@ -587,4 +588,6 @@ pub fn configBlockToBarBlock(cfg: config_mod.Block) blocks_mod.Block {
             cfg.underline,
         ),
     };
+    block.click = cfg.click;
+    return block;
 }

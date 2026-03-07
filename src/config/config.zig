@@ -105,6 +105,11 @@ pub const MouseButton = struct {
     action: MouseAction,
 };
 
+pub const ClickAction = struct {
+    command: []const u8,
+    floating: bool = false,
+};
+
 pub const Block = struct {
     block_type: BlockType,
     format: []const u8,
@@ -118,6 +123,7 @@ pub const Block = struct {
     format_full: ?[]const u8 = null,
     battery_name: ?[]const u8 = null,
     thermal_zone: ?[]const u8 = null,
+    click: ?ClickAction = null,
 };
 
 pub const ColorScheme = struct {

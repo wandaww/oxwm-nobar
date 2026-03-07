@@ -92,6 +92,9 @@ local blocks = {
         interval = 30,
         color = colors.green,
         underline = true,
+        -- click: run a command when the block is clicked
+        -- click = "alacritty -e btop",
+        -- click = { command = "bluetui", floating = true },
     }),
 };
 

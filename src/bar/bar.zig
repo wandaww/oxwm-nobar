@@ -217,6 +217,8 @@ pub const Bar = struct {
             const content = block.getContent();
             const content_width = self.textWidth(display, content);
             block_x -= content_width;
+            block.x_start = block_x;
+            block.x_end = block_x + content_width;
             self.drawText(display, block_x, @divTrunc(self.height + self.font_height, 2) - 4, content, block.color());
             if (block.underline) {
                 self.fillRect(display, block_x, self.height - 2, content_width, 2, block.color());
@@ -252,6 +254,16 @@ pub const Bar = struct {
                 return index;
             }
             x_position += tag_width;
+        }
+        return null;
+    }
+
+    /// Returns the click action of the block the user clicked on, or null.
+    pub fn handleBlockClick(self: *Bar, click_x: i32) ?config_mod.ClickAction {
+        for (self.blocks.items) |*block| {
+            if (block.click != null and click_x >= block.x_start and click_x < block.x_end) {
+                return block.click;
+            }
         }
         return null;
     }

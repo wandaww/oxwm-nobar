@@ -41,6 +41,11 @@ pub fn manage(win: xlib.Window, window_attrs: *xlib.XWindowAttributes, wm: *Wind
         applyRules(client, wm);
     }
 
+    if (wm.next_spawn_floating) {
+        client.is_floating = true;
+        wm.next_spawn_floating = false;
+    }
+
     const monitor = client.monitor orelse return;
 
     if (client.x + client.width > monitor.win_x + monitor.win_w) {

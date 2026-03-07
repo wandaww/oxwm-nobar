@@ -1,4 +1,5 @@
 const std = @import("std");
+const config_mod = @import("../../config/config.zig");
 
 pub const Static = @import("static.zig").Static;
 pub const DateTime = @import("datetime.zig").DateTime;
@@ -13,6 +14,9 @@ pub const Block = struct {
     cached_content: [256]u8,
     cached_len: usize,
     underline: bool,
+    click: ?config_mod.ClickAction = null,
+    x_start: i32 = 0,
+    x_end: i32 = 0,
 
     pub const Data = union(enum) {
         static: Static,
