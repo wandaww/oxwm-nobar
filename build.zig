@@ -4,6 +4,8 @@ const zon = @import("build.zig.zon");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const lua_dep = b.dependency("lua", .{});
+    const lua_headers = lua_dep.path("src/");
 
     const exe = b.addExecutable(.{
         .name = "oxwm",
@@ -24,7 +26,7 @@ pub fn build(b: *std.Build) void {
 
     exe.use_lld = false;
 
-    const lua = buildLua(b, target, optimize);
+    const lua = buildLua(b, lua_dep, target, optimize);
     exe.linkLibrary(lua);
     exe.linkSystemLibrary("X11");
     exe.linkSystemLibrary("Xinerama");
@@ -61,6 +63,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     src_main_unit_tests.use_lld = false;
+    src_main_unit_tests.root_module.addIncludePath(lua_headers);
     src_main_unit_tests.linkLibrary(lua);
     src_main_unit_tests.linkSystemLibrary("X11");
     src_main_unit_tests.linkSystemLibrary("Xinerama");
@@ -77,11 +80,14 @@ pub fn build(b: *std.Build) void {
         }),
     });
     lua_config_tests.use_lld = false;
-    lua_config_tests.root_module.addImport("lua", b.createModule(.{
+    lua_config_tests.root_module.addIncludePath(lua_headers);
+    const lua_config_module = b.createModule(.{
         .root_source_file = b.path("src/config/lua.zig"),
         .target = target,
         .optimize = optimize,
-    }));
+    });
+    lua_config_module.addIncludePath(lua_headers);
+    lua_config_tests.root_module.addImport("lua", lua_config_module);
     lua_config_tests.linkLibrary(lua);
     lua_config_tests.linkLibC();
     test_step.dependOn(&b.addRunArtifact(lua_config_tests).step);
@@ -159,8 +165,8 @@ fn addXwaylandRun(b: *std.Build, exe: *std.Build.Step.Compile) *std.Build.Step.R
     return run_wm;
 }
 
-fn buildLua(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
-    const lua_src = b.dependency("lua", .{});
+fn buildLua(b: *std.Build, lua_dep: *std.Build.Dependency, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
+    const lua_src = lua_dep;
     const lua = b.addLibrary(.{
         .name = "lua",
         .root_module = b.createModule(.{
