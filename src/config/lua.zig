@@ -1046,6 +1046,11 @@ fn luaSetTerminal(state: ?*c.lua_State) callconv(.c) c_int {
 fn luaSetLayout(state: ?*c.lua_State) callconv(.c) c_int {
     const cfg = config orelse return 0;
     const s = state orelse return 0;
+    const name = getStringArg(s, 1) orelse return 0;
+    if (config_mod.Layouts.fromString(name) == null) {
+        std.debug.print("set_layout: unknown layout '{s}'\n", .{name});
+        return 0;
+    }
     if (dupeLuaString(s, 1)) |layout| {
         cfg.layout = layout;
     }

@@ -196,13 +196,13 @@ pub fn updateBarVisibility(monitor: *Monitor, wm: *WindowManager) void {
         _ = xlib.XMapWindow(wm.display.handle, bar.window);
         monitor.win_h -= bar.height;
         if (std.mem.eql(u8, wm.config.bar_position, "top")) {
-            monitor.mon_y += bar.height;
+            monitor.win_y += bar.height;
         }
     } else {
-        _ = xlib.c.XUnmapWindow(wm.display.handle, bar.window);
+        _ = xlib.XUnmapWindow(wm.display.handle, bar.window);
         monitor.win_h += bar.height;
         if (std.mem.eql(u8, wm.config.bar_position, "top")) {
-            monitor.mon_y -= bar.height;
+            monitor.win_y -= bar.height;
         }
     }
 }

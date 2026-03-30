@@ -42,6 +42,7 @@ pub const XQueryTree = c.XQueryTree;
 pub const XFree = c.XFree;
 pub const XGetWindowAttributes = c.XGetWindowAttributes;
 pub const XMapWindow = c.XMapWindow;
+pub const XUnmapWindow = c.XUnmapWindow;
 pub const XConfigureWindow = c.XConfigureWindow;
 pub const XSetInputFocus = c.XSetInputFocus;
 pub const XRaiseWindow = c.XRaiseWindow;

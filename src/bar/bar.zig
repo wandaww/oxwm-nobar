@@ -77,10 +77,10 @@ pub const Bar = struct {
 
         if (std.mem.eql(u8, config.bar_position, "top")) {
             bar_y = monitor.mon_y;
-            monitor.mon_y = monitor.mon_y + bar_height;
+            monitor.win_y = monitor.mon_y + bar_height;
         } else if (std.mem.eql(u8, config.bar_position, "bottom")) {
-            bar_y = monitor.mon_h - bar_height;
-            monitor.mon_y = 0;
+            bar_y = monitor.mon_y + monitor.mon_h - bar_height;
+            monitor.win_y = monitor.mon_y;
         } else {
             return null;
         }

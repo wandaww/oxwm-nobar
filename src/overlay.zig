@@ -172,7 +172,7 @@ pub const KeybindOverlay = struct {
         if (self.display) |display| {
             _ = xlib.XUngrabKeyboard(display, xlib.CurrentTime);
             if (self.window != 0) {
-                _ = xlib.c.XUnmapWindow(display, self.window);
+                _ = xlib.XUnmapWindow(display, self.window);
             }
         }
         self.visible = false;
