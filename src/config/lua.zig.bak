@@ -317,8 +317,6 @@ fn registerMiscFunctions(state: *c.lua_State) void {
 
     c.lua_pushcfunction(state, luaAutostart);
     c.lua_setfield(state, -2, "autostart");
-    c.lua_pushcfunction(state, luaSetExternalBar);
-    c.lua_setfield(state, -2, "set_external_bar"); 
 
     c.lua_pushcfunction(state, luaAutoTile);
     c.lua_setfield(state, -2, "auto_tile");
@@ -1044,19 +1042,6 @@ fn luaSetTerminal(state: ?*c.lua_State) callconv(.c) c_int {
     const s = state orelse return 0;
     if (dupeLuaString(s, 1)) |term| {
         cfg.terminal = term;
-    }
-    return 0;
-}
-
-fn luaSetExternalBar(state: ?*c.lua_State) callconv(.c) c_int {
-    const cfg = config orelse return 0;
-    const s = state orelse return 0;
-    if (dupeLuaString(s, 1)) |pos| {
-        cfg.external_bar_position = pos;
-    }
-    const size = c.lua_tointegerx(s, 2, null);
-    if (size > 0) {
-        cfg.external_bar_size = @intCast(size);
     }
     return 0;
 }

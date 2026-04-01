@@ -44,6 +44,7 @@ pub fn main() !void {
         return;
     }
 
+    std.debug.print("oxwm starting\n", .{});
 
     var config = config_mod.Config.init(allocator);
 
@@ -72,14 +73,19 @@ pub fn main() !void {
     };
     defer wm.deinit();
 
+    std.debug.print("display opened: screen={d} root=0x{x}\n", .{ wm.display.screen, wm.display.root });
+    std.debug.print("successfully became window manager\n", .{});
+    std.debug.print("atoms initialized with EWMH support\n", .{});
 
     wm.grabKeybinds();
     wm.scanExistingWindows(window_manager.core.manage);
 
     try runAutostartCommands(&wm);
+    std.debug.print("entering event loop\n", .{});
     wm.run(handlers.handleEvent, window_manager.core.tickAnimations);
 
     lua.deinit();
+    std.debug.print("oxwm exiting\n", .{});
 }
 
 fn printHelp() void {

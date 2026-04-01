@@ -51,6 +51,28 @@ pub const Bar = struct {
         monitor: *Monitor,
         config: config_mod.Config,
     ) ?*Bar {
+        // disable bar nya cuyy
+       if (!config.show_bar) {
+            if (std.mem.eql(u8, config.external_bar_position, "top")) {
+                monitor.win_y = monitor.mon_y + config.external_bar_size;
+                monitor.win_h = monitor.mon_h - config.external_bar_size;
+            } else if (std.mem.eql(u8, config.external_bar_position, "bottom")) {
+                monitor.win_y = monitor.mon_y;
+                monitor.win_h = monitor.mon_h - config.external_bar_size;
+            } else if (std.mem.eql(u8, config.external_bar_position, "left")) {
+                monitor.win_x = monitor.mon_x + config.external_bar_size;
+                monitor.win_w = monitor.mon_w - config.external_bar_size;
+                monitor.win_y = monitor.mon_y;
+                monitor.win_h = monitor.mon_h;
+            } else if (std.mem.eql(u8, config.external_bar_position, "right")) {
+                monitor.win_x = monitor.mon_x;
+                monitor.win_w = monitor.mon_w - config.external_bar_size;
+                monitor.win_y = monitor.mon_y;
+                monitor.win_h = monitor.mon_h;
+            } 
+            return null;
+        } 
+        // bar has been disabled cuyy
         const bar = allocator.create(Bar) catch return null;
 
         const visual = xlib.XDefaultVisual(display, screen);

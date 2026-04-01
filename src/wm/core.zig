@@ -94,6 +94,9 @@ pub fn manage(win: xlib.Window, window_attrs: *xlib.XWindowAttributes, wm: *Wind
     client_mod.attachStack(client);
 
     _ = xlib.XChangeProperty(wm.display.handle, wm.display.root, wm.atoms.net_client_list, xlib.XA_WINDOW, 32, xlib.PropModeAppend, @ptrCast(&client.window), 1);
+      const client_tag_index: u32 = @ctz(client.tags);
+    _ = xlib.XChangeProperty(wm.display.handle, client.window, wm.atoms.net_wm_desktop, xlib.XA_CARDINAL, 32, xlib.PropModeReplace, @ptrCast(&client_tag_index), 1);
+    _ = xlib.XMoveResizeWindow(wm.display.handle, client.window, client.x + 2 * wm.display.screenWidth(), client.y, @intCast(client.width), @intCast(client.height));
     _ = xlib.XMoveResizeWindow(wm.display.handle, client.window, client.x + 2 * wm.display.screenWidth(), client.y, @intCast(client.width), @intCast(client.height));
     setClientState(client, NormalState, wm);
 
@@ -356,7 +359,7 @@ pub fn setFullscreen(client: *Client, fullscreen: bool, wm: *WindowManager) void
         tiling.resizeClient(client, monitor.mon_x, monitor.mon_y, monitor.mon_w, monitor.mon_h);
         _ = xlib.XRaiseWindow(wm.display.handle, client.window);
 
-        std.debug.print("fullscreen enabled: window=0x{x}\n", .{client.window});
+
     } else if (!fullscreen and client.is_fullscreen) {
         var no_atom: xlib.Atom = 0;
         _ = xlib.XChangeProperty(
@@ -381,7 +384,7 @@ pub fn setFullscreen(client: *Client, fullscreen: bool, wm: *WindowManager) void
         tiling.resizeClient(client, client.x, client.y, client.width, client.height);
         arrange(monitor, wm);
 
-        std.debug.print("fullscreen disabled: window=0x{x}\n", .{client.window});
+
     }
 }
 
@@ -769,5 +772,23 @@ pub fn view(tag_mask: u32, wm: *WindowManager) void {
     focusTopClient(monitor, wm);
     arrange(monitor, wm);
     wm.invalidateBars();
-    std.debug.print("view: tag_mask={d}\n", .{monitor.tagset[monitor.sel_tags]});
+        // Update _NET_CURRENT_DESKTOP biar standar EWW/xdotool browww anjayy slebewww
+    const tag_index: u32 = @ctz(monitor.tagset[monitor.sel_tags]);
+    _ = xlib.XChangeProperty(
+        wm.display.handle,
+        wm.display.root,
+        wm.atoms.net_current_desktop,
+        xlib.XA_CARDINAL,
+        32,
+        xlib.PropModeReplace,
+        @ptrCast(&tag_index),
+        1,
+    );
+    // aku tambahin ini buat update window
+    var cl = monitor.clients;
+    while (cl) |c| {
+        const c_tag_index: u32 = @ctz(c.tags);
+        _ = xlib.XChangeProperty(wm.display.handle, c.window, wm.atoms.net_wm_desktop, xlib.XA_CARDINAL, 32, xlib.PropModeReplace, @ptrCast(&c_tag_index), 1);
+        cl = c.next;
+}
 }

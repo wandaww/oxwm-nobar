@@ -694,23 +694,8 @@ pub const WindowManager = struct {
 
         bar_mod.destroyBars(self.bars, self.display.handle);
         self.bars = null;
-        // Reset monitor area biar hot reload posisi bar langsung apply
-        var mon = self.monitors;
-        while (mon) |m| {
-            m.win_x = m.mon_x;
-            m.win_y = m.mon_y;
-            m.win_w = m.mon_w;
-            m.win_h = m.mon_h;
-            mon = m.next;
-        }
         self.setupBars();
         self.rebuildBarBlocks();
-        // Re-arrange biar semua window yang terbuka langsung reposition tanpa harus close di semua monitor whehehe
-        var arrange_mon = self.monitors;
-        while (arrange_mon) |m| {
-            core.arrange(m, self);
-            arrange_mon = m.next;
-        }
 
         self.grabKeybinds();
     }

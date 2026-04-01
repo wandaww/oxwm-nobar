@@ -237,6 +237,7 @@ pub const PSize = c.PSize;
 
 pub const XA_WM_NAME = c.XA_WM_NAME;
 pub const XA_WINDOW = c.XA_WINDOW;
+pub const XA_CARDINAL = c.XA_CARDINAL; // tak tambahi XA_CARDINAL untuk _NET_CURRENT_DESKTOP
 pub const XA_STRING = c.XA_STRING;
 pub const PropModeAppend = c.PropModeAppend;
 pub const NoEventMask = c.NoEventMask;

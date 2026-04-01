@@ -177,9 +177,12 @@ pub const Config = struct {
     allocator: std.mem.Allocator,
     string_arena: std.heap.ArenaAllocator,
 
+    show_bar: bool = false,
     terminal: []const u8 = "st",
     font: []const u8 = "monospace:size=10",
     bar_position: []const u8 = "top",
+    external_bar_position: []const u8 = "bottom",
+    external_bar_size: i32 = 40,
     tags: [9][]const u8 = .{ "1", "2", "3", "4", "5", "6", "7", "8", "9" },
     layout: []const u8 = "tiling",
     tag_layouts: [9]?[]const u8 = .{null} ** 9,

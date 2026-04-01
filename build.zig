@@ -8,7 +8,7 @@ pub fn build(b: *std.Build) void {
     const lua_headers = lua_dep.path("src/");
 
     const exe = b.addExecutable(.{
-        .name = "oxwm",
+        .name = "oxwm-nobar",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,

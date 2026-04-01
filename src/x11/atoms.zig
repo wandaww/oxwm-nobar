@@ -18,6 +18,8 @@ pub const Atoms = struct {
     net_wm_window_type: xlib.Atom,
     net_wm_window_type_dialog: xlib.Atom,
     net_client_list: xlib.Atom,
+    net_current_desktop: xlib.Atom,   // iki lurr men iso update workspace go standar EWMH
+    net_wm_desktop: xlib.Atom,   //ini biar skrip get_windows ku jalan di ewwbar
 
     /// Intern all atoms and set up the EWMH check window on `root`.
     ///
@@ -49,6 +51,8 @@ pub const Atoms = struct {
             .net_wm_window_type = intern(display, "_NET_WM_WINDOW_TYPE"),
             .net_wm_window_type_dialog = intern(display, "_NET_WM_WINDOW_TYPE_DIALOG"),
             .net_client_list = intern(display, "_NET_CLIENT_LIST"),
+            .net_current_desktop = intern(display, "_NET_CURRENT_DESKTOP"),  // iki juga lurr penting
+            .net_wm_desktop = intern(display, "_NET_WM_DESKTOP"),  // samaaa
         };
 
         const utf8_string = intern(display, "UTF8_STRING");
@@ -71,6 +75,8 @@ pub const Atoms = struct {
             atoms.net_wm_window_type,
             atoms.net_wm_window_type_dialog,
             atoms.net_client_list,
+            atoms.net_current_desktop,  // iki juga tak tambahke
+            atoms.net_wm_desktop,  // samaa ajaaa 
         };
         _ = xlib.XChangeProperty(display, root, atoms.net_supported, xlib.XA_ATOM, 32, xlib.PropModeReplace, @ptrCast(&net_atoms), net_atoms.len);
 
