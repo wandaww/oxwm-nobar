@@ -1,6 +1,7 @@
 #+TITLE: oxwm-nobar
 #+AUTHOR: wandaww
 
+[[./images/oxwm1.png]]
 A fork of [[https://github.com/tonybanters/oxwm][oxwm]] with the built-in bar removed and replaced with support for external bars like [[https://github.com/elkowar/eww][EWW]], Polybar, or any other external bar.
 
 * What's Different from oxwm
